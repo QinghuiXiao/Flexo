@@ -52,11 +52,11 @@ c_{31}u_{1,11}+c_{21}u_{1,12}+c_{33}(u_{1,21}+u_{2,11})+c_{23}(u_{1,22}+u_{2,12}
 
 $$D_{i,i}=0$$
 
-$$-\epsilon_0\varphi_{,11}-\epsilon_0\varphi_{,22}+P_{1,1}+P_{2,2}=0(3)$$
-
 $$D_{1,1}+D_{2,2}=0$$
 
 $$\epsilon_0E_{1,1}+\epsilon_0E_{2,2}+P_{1,1}+P_{2,2}=0$$
+
+$$-\epsilon_0\varphi_{,11}-\epsilon_0\varphi_{,22}+P_{1,1}+P_{2,2}=0(3)$$
 
 ## Phase-field AC equation
 
