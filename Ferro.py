@@ -390,7 +390,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 pre_model_save_path = None
-save_path = './results/ADAM_sqloss.pt'
+save_path = './model/ADAM_sqloss.pt'
 pinn = Pinns(n_int, n_sb, n_tb, save_path, pre_model_save_path, device)
 
 
