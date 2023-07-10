@@ -12,11 +12,10 @@ torch.autograd.set_detect_anomaly(True)
 torch.manual_seed(128)
 
 
-# In[6]:
 
 
 class Pinns:
-    def __init__(self, n_int_, n_sb_, n_tb_, save_dir_, pre_model_save_path_):
+    def __init__(self, n_int_, n_sb_, n_tb_, save_dir_, pre_model_save_path_, device):
         
         self.pre_model_save_path = pre_model_save_path_
         self.save_dir = save_dir_
@@ -26,6 +25,7 @@ class Pinns:
         self.n_tb = n_tb_
         
         self.U_0 = 0
+        self.device = device
         # Extrema of the solution domain (t,x,y) in [0,10]x[0,50]x[0.50]
         self.domain_extrema = torch.tensor([[0, 50],  # Time dimension
                                             [0, 50],  # x dimension
@@ -40,6 +40,7 @@ class Pinns:
                                               regularization_param=0.,
                                               regularization_exp=2.,
                                               retrain_seed=42)
+        self.approximate_solution.to(device)
         '''self.approximate_solution = MultiVariatePoly(self.domain_extrema.shape[0], 3)'''
         if pre_model_save_path_:
             self.load_checkpoint()
@@ -305,6 +306,12 @@ class Pinns:
             for j, ((inp_train_sb, u_train_sb), (inp_train_tb, u_train_tb), (inp_train_int, u_train_int)) in enumerate(zip(self.training_set_sb, self.training_set_tb, self.training_set_int)):
                 def closure():
                     optimizer.zero_grad()
+                    inp_train_sb.to(self.device)
+                    u_train_sb.to(self.device)
+                    inp_train_tb.to(self.device)
+                    u_train_tb.to(self.device)
+                    inp_train_int.to(self.device)
+
                     loss = self.compute_loss(inp_train_sb, u_train_sb, inp_train_tb, u_train_tb, inp_train_int, verbose=verbose)
                     loss.backward()
 
@@ -379,17 +386,16 @@ class Pinns:
 n_int = 1000
 n_sb = 100
 n_tb = 100
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 pre_model_save_path = None
 save_path = './results/ADAM_sqloss.pt'
-pinn = Pinns(n_int, n_sb, n_tb, save_path, pre_model_save_path)
+pinn = Pinns(n_int, n_sb, n_tb, save_path, pre_model_save_path, device)
 
 
-# In[8]:
 
-
-n_epochs = 10
+n_epochs = 1000
 optimizer_LBFGS = optim.LBFGS(pinn.approximate_solution.parameters(),
                               lr=float(0.5),
                               max_iter=50000,
