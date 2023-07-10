@@ -40,7 +40,6 @@ class Pinns:
                                               regularization_param=0.,
                                               regularization_exp=2.,
                                               retrain_seed=42)
-        self.approximate_solution.to(device)
         '''self.approximate_solution = MultiVariatePoly(self.domain_extrema.shape[0], 3)'''
         if pre_model_save_path_:
             self.load_checkpoint()
@@ -386,14 +385,13 @@ class Pinns:
 n_int = 1000
 n_sb = 100
 n_tb = 100
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+#device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cpu')
 
 pre_model_save_path = None
 save_path = './model/ADAM_sqloss.pt'
 pinn = Pinns(n_int, n_sb, n_tb, save_path, pre_model_save_path, device)
-
-
+pinn.approximate_solution.to(device)
 
 n_epochs = 1000
 optimizer_LBFGS = optim.LBFGS(pinn.approximate_solution.parameters(),
@@ -403,8 +401,8 @@ optimizer_LBFGS = optim.LBFGS(pinn.approximate_solution.parameters(),
                               history_size=150,
                               line_search_fn="strong_wolfe",
                               tolerance_change=1.0 * np.finfo(float).eps)
-optimizer_ADAM = optim.Adam(pinn.approximate_solution.parameters(),
-                            lr=float(0.001))
+optimizer_ADAM = optim.Adam(pinn.approximate_solution.parameters(), lr=float(0.001), weight_decay=1e-8)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer_ADAM, step_size= 50, gamma= 0.95)
 
 hist = pinn.fit(num_epochs=n_epochs,
                 optimizer=optimizer_ADAM,
