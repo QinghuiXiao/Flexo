@@ -365,7 +365,8 @@ class Pinns:
             plt.title(f"Velocity Vector Plot at t = {t_val}")
             plt.xlabel("x")
             plt.ylabel("y")
-            plt.show()
+           # plt.show()
+            plt.savefig('figure/velocity_vector_plot_t' + str(t_val) + '.png', dpi=150)
 
             fig, axs = plt.subplots(1, 2, figsize=(15, 5), dpi=150)
             im1 = axs[0].scatter(xx, yy, c=P1_slice, cmap='jet')
@@ -380,6 +381,7 @@ class Pinns:
             axs[1].grid(True, which="both", ls=":")
             axs[0].set_title(f"P1 at t = {t_val}")
             axs[1].set_title(f"P2 at t = {t_val}")
+            plt.savefig('figure/plotting_t' + str(t_val) + '.png', dpi=150)
 
 
 n_int = 1000
@@ -388,12 +390,13 @@ n_tb = 100
 #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 device = torch.device('cpu')
 
-pre_model_save_path = None
-save_path = './model/ADAM_sqloss.pt'
+pre_model_save_path = 'model/Optimizer_sqloss.pt'
+save_path = 'model/Optimizer_sqloss.pt'
+
 pinn = Pinns(n_int, n_sb, n_tb, save_path, pre_model_save_path, device)
 pinn.approximate_solution.to(device)
 
-n_epochs = 1000
+n_epochs = 1
 optimizer_LBFGS = optim.LBFGS(pinn.approximate_solution.parameters(),
                               lr=float(0.5),
                               max_iter=50000,
@@ -403,10 +406,13 @@ optimizer_LBFGS = optim.LBFGS(pinn.approximate_solution.parameters(),
                               tolerance_change=1.0 * np.finfo(float).eps)
 optimizer_ADAM = optim.Adam(pinn.approximate_solution.parameters(), lr=float(0.001), weight_decay=1e-8)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer_ADAM, step_size= 50, gamma= 0.95)
+optimizer = optimizer_LBFGS
+if pre_model_save_path:
+    pinn.load_checkpoint()
 
 hist = pinn.fit(num_epochs=n_epochs,
-                optimizer=optimizer_ADAM,
+                optimizer=optimizer,
                 verbose=True)
 pinn.save_checkpoint()
 
-pinn.plotting()
+#pinn.plotting()
