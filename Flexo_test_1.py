@@ -28,10 +28,9 @@ class Pinns:
 
         # Number of space dimensions
         self.space_dimensions = 2
+        #TODO self.approximate_solution = NeuralNet().to(self.device)
 
         '''self.approximate_solution = MultiVariatePoly(3, 3)'''
-
-   
 
         if pre_model_save_path_:
             self.load_checkpoint()
@@ -94,6 +93,7 @@ class Pinns:
         P2_previous = self.u_previous[:, 1].reshape(-1, 1)
 
         input_int.requires_grad = True
+        # TODO: input_int should be the device
         u = self.approximate_solution(input_int)
 
         P1 = u[:, 0].reshape(-1, 1)
@@ -137,6 +137,7 @@ class Pinns:
 
     def compute_bc_residual(self, input_bc):
         input_bc.requires_grad = True
+        # TODO: input_bc should be the device
         u = self.approximate_solution(input_bc)
         varphi = u[:, 2].reshape(-1, 1)
         residual_varphi = varphi
@@ -144,7 +145,7 @@ class Pinns:
         return residual_varphi.reshape(-1, )
 
     def compute_bcU_residual(self, input_bc):
-
+        # TODO: input_bc should be the device
         u = self.approximate_solution(input_bc)
         P1 = u[:, 0].reshape(-1, 1)
         P2 = u[:, 1].reshape(-1, 1)
@@ -160,7 +161,7 @@ class Pinns:
         return residual_U_1.reshape(-1, ), residual_U_2.reshape(-1, )
 
     def compute_bcD_residual(self, input_bc):
-
+        # TODO: input_bc should be the device
         u = self.approximate_solution(input_bc)
         P1 = u[:, 0].reshape(-1, 1)
         P2 = u[:, 1].reshape(-1, 1)
@@ -176,6 +177,7 @@ class Pinns:
         return residual_D_1.reshape(-1, ), residual_D_2.reshape(-1, )
 
     def compute_bcL_residual(self, input_bc):
+        # TODO: input_int should be the device
 
         u = self.approximate_solution(input_bc)
         P1 = u[:, 0].reshape(-1, 1)
@@ -192,6 +194,7 @@ class Pinns:
         return residual_L_1.reshape(-1, ), residual_L_2.reshape(-1, )
 
     def compute_bcR_residual(self, input_bc):
+        # TODO: input_int should be the device
 
         u = self.approximate_solution(input_bc)
         P1 = u[:, 0].reshape(-1, 1)
@@ -255,7 +258,7 @@ class Pinns:
                     print(inp_train_int.shape)
                     def closure():
                         optimizer.zero_grad()
-
+                        # TODO: loss should be the device 
                         loss = self.compute_loss(inp_train_sb, inp_train_int, u_previous, verbose=verbose)
                         loss.backward()
 
@@ -327,7 +330,7 @@ for i in range(10):
     n_epochs = 10
     optimizer_LBFGS = optim.LBFGS(Temporal_PINN.approximate_solution.parameters(),
                                 lr=float(0.5),
-                                max_iter=50000,
+                                max_iter= 1000,
                                 max_eval=50000,
                                 history_size=150,
                                 line_search_fn="strong_wolfe",
