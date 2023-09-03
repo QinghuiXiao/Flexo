@@ -12,7 +12,7 @@ torch.manual_seed(128)
 
 
 class Pinns:
-    def __init__(self, n_int_, n_sb_, save_dir_, pre_model_save_path_, device_, delta_t_):
+    def __init__(self, n_int_, n_sb_, save_dir_, pre_model_save_path_, device_, delta_t_, u_previous_):
         self.pre_model_save_path = pre_model_save_path_
         self.save_dir = save_dir_
 
@@ -21,6 +21,7 @@ class Pinns:
         self.delta_t = delta_t_
 
         self.device = device_
+        self.u_previous = u_previous_
 
         self.domain_extrema = torch.tensor([[0, 50],   # x dimension
                                             [0, 50]])  # y dimension
@@ -87,9 +88,10 @@ class Pinns:
         return training_set_sb, training_set_int
 
     # Function to compute the PDE residuals
-    def compute_pde_residual(self, input_int, u_previous):
-        P1_previous = u_previous[:, 0].reshape(-1, 1)
-        P2_previous = u_previous[:, 1].reshape(-1, 1)
+    def compute_pde_residual(self, input_int):
+        #TODO: change the input_int such that it takes the previous solution as input. self.u_previous
+        P1_previous = self.u_previous[:, 0].reshape(-1, 1)
+        P2_previous = self.u_previous[:, 1].reshape(-1, 1)
 
         input_int.requires_grad = True
         u = self.approximate_solution(input_int)
