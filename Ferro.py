@@ -391,22 +391,22 @@ n_tb = 100
 device = torch.device('cpu')
 
 pre_model_save_path = 'model/Optimizer_sqloss.pt'
-save_path = 'model/Optimizer_sqloss.pt'
+save_path = 'model/optimizer_update.pt'
 
 pinn = Pinns(n_int, n_sb, n_tb, save_path, pre_model_save_path, device)
 pinn.approximate_solution.to(device)
 
-n_epochs = 1
+n_epochs = 10
 optimizer_LBFGS = optim.LBFGS(pinn.approximate_solution.parameters(),
-                              lr=float(0.5),
+                              lr=float(0.05),
                               max_iter=50000,
                               max_eval=50000,
                               history_size=150,
                               line_search_fn="strong_wolfe",
                               tolerance_change=1.0 * np.finfo(float).eps)
-optimizer_ADAM = optim.Adam(pinn.approximate_solution.parameters(), lr=float(0.001), weight_decay=1e-8)
+optimizer_ADAM = optim.Adam(pinn.approximate_solution.parameters(), lr=float(0.00001), weight_decay=1e-8)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer_ADAM, step_size= 50, gamma= 0.95)
-optimizer = optimizer_LBFGS
+optimizer = optimizer_ADAM
 if pre_model_save_path:
     pinn.load_checkpoint()
 

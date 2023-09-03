@@ -30,22 +30,7 @@ class Pinns:
 
         '''self.approximate_solution = MultiVariatePoly(3, 3)'''
 
-        self.networks = []  # List to store networks for each time interval
-        self.time_intervals = []  # List to store corresponding time intervals
-
-        for i in range(10):
-            start_time = i * delta_t
-            end_time = (i + 1) * delta_t
-            self.time_intervals.append((start_time, end_time))
-            input_dimension = 5
-            self.approximate_solution = NeuralNet(input_dimension=input_dimension, output_dimension=3,
-                                                  n_hidden_layers=4, neurons=20,
-                                                  regularization_param=0.,
-                                                  regularization_exp=2.,
-                                                  retrain_seed=42)
-            if pre_model_save_path_:
-                self.approximate_solution.load_state_dict(torch.load(pre_model_save_path_))
-            self.networks.append(self.approximate_solution)
+   
 
         if pre_model_save_path_:
             self.load_checkpoint()
@@ -253,14 +238,7 @@ class Pinns:
 
         # Loop over time intervals
         for i in range(10):
-            print(f"Training network for time interval [{i * self.delta_t}, {(i + 1) * self.delta_t}]")
-
-            # Load initial data if i is 0
-            if i == 0:
-                initial_data = pd.read_csv('initial.csv').values
-                u_previous = torch.tensor(initial_data, dtype=torch.float32)
-            else:
-                u_previous = torch.tensor(new_u_previous, dtype=torch.float32)
+            
 
             # Loop over epochs
             for epoch in range(num_epochs):
@@ -321,23 +299,39 @@ delta_t = 0.01
 device = torch.device('cpu')
 pre_model_save_path = None
 save_path = './results/ADAM_test_1.pt'
-pinn = Pinns(n_int, n_sb, save_path, pre_model_save_path, device, delta_t)
-pinn.approximate_solution.to(device)
 
-n_epochs = 10
-optimizer_LBFGS = optim.LBFGS(pinn.approximate_solution.parameters(),
-                              lr=float(0.5),
-                              max_iter=50000,
-                              max_eval=50000,
-                              history_size=150,
-                              line_search_fn="strong_wolfe",
-                              tolerance_change=1.0 * np.finfo(float).eps)
-optimizer_ADAM = optim.Adam(pinn.approximate_solution.parameters(),
-                            lr=float(0.0001))
 
-hist = pinn.fit(num_epochs=n_epochs,
-                optimizer=optimizer_ADAM,
-                verbose=True)
-pinn.save_checkpoint()
+networks = []  # List to store networks for each time interval
+time_intervals = []  # List to store corresponding time intervals
+initial_data = pd.read_csv('initial.csv').values
+u_previous = torch.tensor(initial_data, dtype=torch.float32)
+delta_t = 0.01
+for i in range(10):
+    start_time = i * delta_t
+    end_time = (i + 1) * delta_t
+    time_intervals.append((start_time, end_time))
+    input_dimension = 5
+    #TODO: change the initialization of the PINN such that it takes the previous solution as input
+    Temporal_PINN = Pinns(n_int, n_sb, save_path, pre_model_save_path, device, delta_t, u_previous) # Create PINN object
 
-#pinn.plotting()
+    print(f"Training network for time interval [{i * Temporal_PINN.delta_t}, {(i + 1) * Temporal_PINN.delta_t}]")
+    #TODO u_end should be the end solution of the previous PINN
+    u_end = Temporal_PINN.fit(num_epochs=n_epochs, optimizer=optimizer_LBFGS, verbose=True) # Fit the PINN
+    Pinns.save_checkpoint() # Save the PINN
+    Pinns.load_checkpoint() # Load the PINN 
+    Pinns.plotting() # Plot the PINN
+    Pinns.calculate_u_end() # Calculate the end time solution
+
+    n_epochs = 10
+    optimizer_LBFGS = optim.LBFGS(Temporal_PINN.approximate_solution.parameters(),
+                                lr=float(0.5),
+                                max_iter=50000,
+                                max_eval=50000,
+                                history_size=150,
+                                line_search_fn="strong_wolfe",
+                                tolerance_change=1.0 * np.finfo(float).eps)
+    # optimizer_ADAM = optim.Adam(pinn.approximate_solution.parameters(),
+    #                             lr=float(0.0001))
+
+    u_previous = u_end
+    networks.append(Temporal_PINN)
