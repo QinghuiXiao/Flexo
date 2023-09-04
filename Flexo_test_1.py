@@ -1,10 +1,11 @@
 import numpy as np
-#import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import pandas as pd
 import torch.optim as optim
 import torch
 from torch.utils.data import DataLoader
 from Common import NeuralNet
+import csv
 
 # import time
 torch.autograd.set_detect_anomaly(True)
@@ -23,12 +24,18 @@ class Pinns:
         self.device = device_
         self.u_previous = u_previous_
 
-        self.domain_extrema = torch.tensor([[0, 50],   # x dimension
+        self.domain_extrema = torch.tensor([[0, 50],  # x dimension
                                             [0, 50]])  # y dimension
 
         # Number of space dimensions
         self.space_dimensions = 2
-        #TODO self.approximate_solution = NeuralNet().to(self.device)
+
+        self.approximate_solution = NeuralNet(input_dimension=self.domain_extrema.shape[0], output_dimension=3,
+                                              n_hidden_layers=4,
+                                              neurons=20,
+                                              regularization_param=0.,
+                                              regularization_exp=2.,
+                                              retrain_seed=42).to(self.device)
 
         '''self.approximate_solution = MultiVariatePoly(3, 3)'''
 
@@ -70,13 +77,14 @@ class Pinns:
         input_sb = torch.cat([input_sb_U, input_sb_D, input_sb_L, input_sb_R], 0)
 
         return input_sb
+
     def add_interior_points(self):
         input_int = self.convert(self.soboleng.draw(self.n_int))
         return input_int
 
     def assemble_datasets(self):
-        input_sb = self.add_spatial_boundary_points()  # S_sb
-        input_int = self.add_interior_points()  # S_int
+        input_sb = self.add_spatial_boundary_points().to(self.device) # S_sb
+        input_int = self.add_interior_points().to(self.device)  # S_int
 
         training_set_sb = DataLoader(torch.utils.data.TensorDataset(input_sb),
                                      batch_size=2 * self.space_dimensions * self.n_sb, shuffle=False)
@@ -88,12 +96,11 @@ class Pinns:
 
     # Function to compute the PDE residuals
     def compute_pde_residual(self, input_int):
-        #TODO: change the input_int such that it takes the previous solution as input. self.u_previous
+
         P1_previous = self.u_previous[:, 0].reshape(-1, 1)
         P2_previous = self.u_previous[:, 1].reshape(-1, 1)
 
         input_int.requires_grad = True
-        # TODO: input_int should be the device
         u = self.approximate_solution(input_int)
 
         P1 = u[:, 0].reshape(-1, 1)
@@ -125,19 +132,18 @@ class Pinns:
 
         residual_PDE_1 = -0.5841 * varphi_11 - 0.5841 * varphi_22 + P1_1 + P2_2
         residual_PDE_2 = (P1 - P1_previous) / self.delta_t - (
-                    -2 * 0.148 * P1 - 4 * 0.031 * P1 ** 3 + 2 * 0.63 * P1 * P2 ** 2 + 6 * 0.25 * P1 ** 5 + 0.97 * (
-                        2 * P1 * P2 ** 4 + 4 * P1 ** 3 * P2 ** 2)) + 0.15 * P1_11 - 0.15 * P2_21 + 0.15 * (
-                            P2_12 + P1_22) - varphi_1
+                -2 * 0.148 * P1 - 4 * 0.031 * P1 ** 3 + 2 * 0.63 * P1 * P2 ** 2 + 6 * 0.25 * P1 ** 5 + 0.97 * (
+                2 * P1 * P2 ** 4 + 4 * P1 ** 3 * P2 ** 2)) + 0.15 * P1_11 - 0.15 * P2_21 + 0.15 * (
+                                 P2_12 + P1_22) - varphi_1
         residual_PDE_3 = (P2 - P2_previous) / self.delta_t - (
-                    -2 * 0.148 * P2 - 4 * 0.031 * P2 ** 3 + 2 * 0.63 * P2 * P1 ** 2 + 6 * 0.25 * P2 ** 5 + 0.97 * (
-                        2 * P2 * P1 ** 4 + 4 * P2 ** 3 * P1 ** 2)) + 0.15 * (
-                            P2_11 + P1_21) - 0.15 * P1_12 + 0.15 * P2_22 - varphi_2
+                -2 * 0.148 * P2 - 4 * 0.031 * P2 ** 3 + 2 * 0.63 * P2 * P1 ** 2 + 6 * 0.25 * P2 ** 5 + 0.97 * (
+                2 * P2 * P1 ** 4 + 4 * P2 ** 3 * P1 ** 2)) + 0.15 * (
+                                 P2_11 + P1_21) - 0.15 * P1_12 + 0.15 * P2_22 - varphi_2
 
         return residual_PDE_1.reshape(-1, ), residual_PDE_2.reshape(-1, ), residual_PDE_3.reshape(-1, )
 
     def compute_bc_residual(self, input_bc):
         input_bc.requires_grad = True
-        # TODO: input_bc should be the device
         u = self.approximate_solution(input_bc)
         varphi = u[:, 2].reshape(-1, 1)
         residual_varphi = varphi
@@ -145,7 +151,7 @@ class Pinns:
         return residual_varphi.reshape(-1, )
 
     def compute_bcU_residual(self, input_bc):
-        # TODO: input_bc should be the device
+
         u = self.approximate_solution(input_bc)
         P1 = u[:, 0].reshape(-1, 1)
         P2 = u[:, 1].reshape(-1, 1)
@@ -161,7 +167,7 @@ class Pinns:
         return residual_U_1.reshape(-1, ), residual_U_2.reshape(-1, )
 
     def compute_bcD_residual(self, input_bc):
-        # TODO: input_bc should be the device
+
         u = self.approximate_solution(input_bc)
         P1 = u[:, 0].reshape(-1, 1)
         P2 = u[:, 1].reshape(-1, 1)
@@ -177,7 +183,6 @@ class Pinns:
         return residual_D_1.reshape(-1, ), residual_D_2.reshape(-1, )
 
     def compute_bcL_residual(self, input_bc):
-        # TODO: input_int should be the device
 
         u = self.approximate_solution(input_bc)
         P1 = u[:, 0].reshape(-1, 1)
@@ -194,7 +199,6 @@ class Pinns:
         return residual_L_1.reshape(-1, ), residual_L_2.reshape(-1, )
 
     def compute_bcR_residual(self, input_bc):
-        # TODO: input_int should be the device
 
         u = self.approximate_solution(input_bc)
         P1 = u[:, 0].reshape(-1, 1)
@@ -210,10 +214,9 @@ class Pinns:
 
         return residual_R_1.reshape(-1, ), residual_R_2.reshape(-1, )
 
-
     # Function to compute the total loss (weighted sum of spatial boundary loss, temporal boundary loss and interior loss)
-    def compute_loss(self, inp_train_sb, inp_train_int, u_previous, verbose=True):
-        r_int_1, r_int_2, r_int_3 = self.compute_pde_residual(inp_train_int, u_previous)
+    def compute_loss(self, inp_train_sb, inp_train_int, verbose=True):
+        r_int_1, r_int_2, r_int_3 = self.compute_pde_residual(inp_train_int)
         r_sb_varphi = self.compute_bc_residual(inp_train_sb)
         r_sbU_1, r_sbU_2 = self.compute_bcU_residual(inp_train_sb[0:self.n_sb, :])
         r_sbD_1, r_sbD_2 = self.compute_bcD_residual(inp_train_sb[self.n_sb:2 * self.n_sb, :])
@@ -237,52 +240,38 @@ class Pinns:
 
         return loss
 
+    def calculate_u_end(self, input_int):
+        u_end = self.approximate_solution(input_int)
+        return u_end
+
+    # 在fit方法中创建用于存储损失和u_end的列表
     def fit(self, num_epochs, optimizer, verbose=True):
         history = []
-        new_u_previous = None
 
-        # Loop over time intervals
-        for i in range(10):
-            
+        for epoch in range(num_epochs):
+            if verbose:
+                print("################################ ", epoch, " ################################")
 
-            # Loop over epochs
-            for epoch in range(num_epochs):
-                if verbose:
-                    print("################################ ", epoch, " ################################")
+            # Iterate through batches of training_set_int and training_set_sb
+            for j, (batch_sb, batch_int) in enumerate(zip(self.training_set_sb, self.training_set_int)):
+                inp_train_sb = batch_sb[0].to(self.device)
+                inp_train_int = batch_int[0].to(self.device)
 
-                # Iterate through batches of training_set_int and training_set_sb
-                for j, (batch_sb, batch_int) in enumerate(zip(self.training_set_sb, self.training_set_int)):
-                    inp_train_sb = batch_sb[0].to(self.device)
-                    inp_train_int = batch_int[0].to(self.device)
-                    print(inp_train_sb.shape)
-                    print(inp_train_int.shape)
-                    def closure():
-                        optimizer.zero_grad()
-                        # TODO: loss should be the device 
-                        loss = self.compute_loss(inp_train_sb, inp_train_int, u_previous, verbose=verbose)
-                        loss.backward()
+                def closure():
+                    optimizer.zero_grad()
+                    loss = self.compute_loss(inp_train_sb, inp_train_int, verbose=verbose)
+                    loss.backward(retain_graph=True)
+                    optimizer.step()
 
-                        optimizer.step()
+                    history.append(loss.item())
+                    return loss
 
-                        history.append(loss.item())
-                        return loss
+                optimizer.step(closure=closure)
 
-                    optimizer.step(closure=closure)
+                u_end = self.calculate_u_end(inp_train_int)
 
-                    # Update new_u_previous
-                    new_u_previous = self.approximate_solution(inp_train_int)
-
-            print('Final Loss: ', history[-1])
-
-            if history[-1] < 10:
-                # Save the output and loss to files
-                output_data = new_u_previous.cpu().detach().numpy()
-                np.savetxt(f'i_output_{i}.csv', output_data, delimiter=',')
-
-                with open(f'loss_{i}.txt', 'w') as loss_file:
-                    loss_file.write(str(history[-1]))
-
-        return history
+        print('Final Loss: ', history[-1])
+        return history, u_end
 
     def save_checkpoint(self):
         '''save model and optimizer'''
@@ -296,6 +285,7 @@ class Pinns:
         self.approximate_solution.load_state_dict(checkpoint['model_state_dict'])
         print('Pretrained model loaded!')
 
+
 n_int = 10000
 n_sb = 500
 delta_t = 0.01
@@ -305,38 +295,42 @@ device = torch.device('cpu')
 pre_model_save_path = None
 save_path = './results/ADAM_test_1.pt'
 
-
 networks = []  # List to store networks for each time interval
 time_intervals = []  # List to store corresponding time intervals
-initial_data = pd.read_csv('initial.csv').values
+initial_data = pd.read_csv('initial_0.csv').values
 u_previous = torch.tensor(initial_data, dtype=torch.float32)
-delta_t = 0.01
+
 for i in range(10):
     start_time = i * delta_t
     end_time = (i + 1) * delta_t
     time_intervals.append((start_time, end_time))
-    input_dimension = 5
-    #TODO: change the initialization of the PINN such that it takes the previous solution as input
-    Temporal_PINN = Pinns(n_int, n_sb, save_path, pre_model_save_path, device, delta_t, u_previous) # Create PINN object
+    input_dimension = 2
 
-    print(f"Training network for time interval [{i * Temporal_PINN.delta_t}, {(i + 1) * Temporal_PINN.delta_t}]")
-    #TODO u_end should be the end solution of the previous PINN
-    u_end = Temporal_PINN.fit(num_epochs=n_epochs, optimizer=optimizer_LBFGS, verbose=True) # Fit the PINN
-    Pinns.save_checkpoint() # Save the PINN
-    Pinns.load_checkpoint() # Load the PINN 
-    Pinns.plotting() # Plot the PINN
-    Pinns.calculate_u_end() # Calculate the end time solution
+    # Create PINN object with previous solution
+    Temporal_PINN = Pinns(n_int, n_sb, save_path, pre_model_save_path, device, delta_t, u_previous)
 
     n_epochs = 10
     optimizer_LBFGS = optim.LBFGS(Temporal_PINN.approximate_solution.parameters(),
-                                lr=float(0.5),
-                                max_iter= 1000,
-                                max_eval=50000,
-                                history_size=150,
-                                line_search_fn="strong_wolfe",
-                                tolerance_change=1.0 * np.finfo(float).eps)
-    # optimizer_ADAM = optim.Adam(pinn.approximate_solution.parameters(),
-    #                             lr=float(0.0001))
+                                  lr=float(0.5),
+                                  max_iter=1000,
+                                  max_eval=50000,
+                                  history_size=150,
+                                  line_search_fn="strong_wolfe",
+                                  tolerance_change=1.0 * np.finfo(float).eps)
+    optimizer_ADAM = optim.Adam(Temporal_PINN.approximate_solution.parameters(),
+                                lr=float(0.0001))
 
+    print(f"Training network for time interval [{i * Temporal_PINN.delta_t}, {(i + 1) * Temporal_PINN.delta_t}]")
+    _, u_end = Temporal_PINN.fit(num_epochs=n_epochs, optimizer=optimizer_ADAM, verbose=True)  # Fit the PINN
+
+    # Save the current solution for the next time step
     u_previous = u_end
+    print(u_previous.shape)
     networks.append(Temporal_PINN)
+
+    # Save u_previous to i_output.csv
+    output_filename = f"{i+1}_output.csv"
+    with open(output_filename, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(u_previous.tolist())
+
