@@ -6,6 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 from Common import NeuralNet
 import csv
+import time
 
 # import time
 torch.autograd.set_detect_anomaly(True)
@@ -83,8 +84,8 @@ class Pinns:
         return input_int
 
     def assemble_datasets(self):
-        input_sb = self.add_spatial_boundary_points().to(self.device) # S_sb
-        input_int = self.add_interior_points().to(self.device)  # S_int
+        input_sb = self.add_spatial_boundary_points()  # S_sb
+        input_int = self.add_interior_points()         # S_int
 
         training_set_sb = DataLoader(torch.utils.data.TensorDataset(input_sb),
                                      batch_size=2 * self.space_dimensions * self.n_sb, shuffle=False)
@@ -99,6 +100,8 @@ class Pinns:
 
         P1_previous = self.u_previous[:, 0].reshape(-1, 1)
         P2_previous = self.u_previous[:, 1].reshape(-1, 1)
+        P1_previous = P1_previous.to(self.device)
+        P2_previous = P2_previous.to(self.device)
 
         input_int.requires_grad = True
         u = self.approximate_solution(input_int)
@@ -244,9 +247,12 @@ class Pinns:
         u_end = self.approximate_solution(input_int)
         return u_end
 
-    # 在fit方法中创建用于存储损失和u_end的列表
     def fit(self, num_epochs, optimizer, verbose=True):
         history = []
+        u_end = None  # 初始化 u_end
+
+        # 记录开始时间
+        start_time = time.time()
 
         for epoch in range(num_epochs):
             if verbose:
@@ -268,9 +274,17 @@ class Pinns:
 
                 optimizer.step(closure=closure)
 
+                # 在这里计算 u_end
                 u_end = self.calculate_u_end(inp_train_int)
 
+        # 记录结束时间
+        end_time = time.time()
+
+        # 计算执行时间
+        execution_time = end_time - start_time
+
         print('Final Loss: ', history[-1])
+        print('Execution Time: {:.2f} seconds'.format(execution_time))
         return history, u_end
 
     def save_checkpoint(self):
@@ -287,11 +301,11 @@ class Pinns:
 
 
 n_int = 10000
-n_sb = 500
+n_sb = 200
 delta_t = 0.01
 
-#device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-device = torch.device('cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#device = torch.device('cpu')
 pre_model_save_path = None
 save_path = './results/ADAM_test_1.pt'
 
@@ -304,12 +318,13 @@ for i in range(10):
     start_time = i * delta_t
     end_time = (i + 1) * delta_t
     time_intervals.append((start_time, end_time))
-    input_dimension = 2
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Create PINN object with previous solution
     Temporal_PINN = Pinns(n_int, n_sb, save_path, pre_model_save_path, device, delta_t, u_previous)
-
-    n_epochs = 10
+    Temporal_PINN.approximate_solution.to(device)
+    n_epochs = 1000
     optimizer_LBFGS = optim.LBFGS(Temporal_PINN.approximate_solution.parameters(),
                                   lr=float(0.5),
                                   max_iter=1000,
@@ -318,19 +333,21 @@ for i in range(10):
                                   line_search_fn="strong_wolfe",
                                   tolerance_change=1.0 * np.finfo(float).eps)
     optimizer_ADAM = optim.Adam(Temporal_PINN.approximate_solution.parameters(),
-                                lr=float(0.0001))
+                                lr=float(0.001))
 
     print(f"Training network for time interval [{i * Temporal_PINN.delta_t}, {(i + 1) * Temporal_PINN.delta_t}]")
     _, u_end = Temporal_PINN.fit(num_epochs=n_epochs, optimizer=optimizer_ADAM, verbose=True)  # Fit the PINN
 
     # Save the current solution for the next time step
     u_previous = u_end
-    print(u_previous.shape)
+    u_previous = u_previous.to(device)
+
+    #print(u_previous.shape)
     networks.append(Temporal_PINN)
 
     # Save u_previous to i_output.csv
     output_filename = f"{i+1}_output.csv"
     with open(output_filename, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerows(u_previous.tolist())
+        writer.writerows(u_previous.detach().cpu().numpy())
 
