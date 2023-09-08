@@ -2,8 +2,8 @@ import torch.nn as nn
 import torch
 import os
 
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-torch.manual_seed(42)
+#os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+#torch.manual_seed(42)
 
 
 class NeuralNet(nn.Module):

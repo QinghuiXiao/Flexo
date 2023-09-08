@@ -4,7 +4,7 @@ import pandas as pd
 import torch.optim as optim
 import torch
 from torch.utils.data import DataLoader
-from Common import NeuralNet
+from Trainer.model import NeuralNet
 import csv
 import time
 

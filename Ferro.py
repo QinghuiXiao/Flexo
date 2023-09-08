@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import torch.optim as optim
 import torch
 from torch.utils.data import DataLoader
-from Common import NeuralNet
+from Trainer.model import NeuralNet
 #import time
 torch.autograd.set_detect_anomaly(True)
 torch.manual_seed(128)
@@ -387,8 +387,8 @@ class Pinns:
 n_int = 1000
 n_sb = 100
 n_tb = 100
-#device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-device = torch.device('cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#device = torch.device('cpu')
 
 pre_model_save_path = 'model/Optimizer_sqloss.pt'
 save_path = 'model/optimizer_update.pt'
