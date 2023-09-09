@@ -1,30 +1,29 @@
-import torch
 import numpy as np
-import matplotlib.pyplot as plt
-
+# import matplotlib.pyplot as plt
+import pandas as pd
+import torch.optim as optim
+import torch
 from torch.utils.data import DataLoader
-from .model import NeuralNet
-from .model import MultiVariatePoly  
-from tqdm import tqdm
+from Trainer.model import NeuralNet
+import csv
 import time
-from copy import deepcopy
-import os
 
-
+# import time
+torch.autograd.set_detect_anomaly(True)
+torch.manual_seed(128)
 
 
 class Pinns:
-    def __init__(self, n_int_, n_sb_, save_dir_, pre_model_save_path_, device_, delta_t_, u_previous_, optimizer_):
+    def __init__(self, n_int_, n_sb_, save_dir_, pre_model_save_path_, device_, delta_t_, u_previous_):
         self.pre_model_save_path = pre_model_save_path_
         self.save_dir = save_dir_
 
         self.n_int = n_int_
         self.n_sb = n_sb_
         self.delta_t = delta_t_
-        self.optimizer_name = optimizer_
 
         self.device = device_
-        self.u_previous = u_previous_.to(self.device)
+        self.u_previous = u_previous_
 
         self.domain_extrema = torch.tensor([[0, 50],  # x dimension
                                             [0, 50]])  # y dimension
@@ -101,6 +100,8 @@ class Pinns:
 
         P1_previous = self.u_previous[:, 0].reshape(-1, 1)
         P2_previous = self.u_previous[:, 1].reshape(-1, 1)
+        P1_previous = P1_previous.to(self.device)
+        P2_previous = P2_previous.to(self.device)
 
         input_int.requires_grad = True
         u = self.approximate_solution(input_int)
@@ -108,6 +109,7 @@ class Pinns:
         P1 = u[:, 0].reshape(-1, 1)
         P2 = u[:, 1].reshape(-1, 1)
         varphi = u[:, 2].reshape(-1, 1)
+
         grad_varphi = torch.autograd.grad(varphi.sum(), input_int, create_graph=True)[0]
         varphi_1, varphi_2 = grad_varphi[:, 0], grad_varphi[:, 1]
         grad_varphi_1 = torch.autograd.grad(varphi_1.sum(), input_int, create_graph=True)[0]
@@ -132,7 +134,6 @@ class Pinns:
         P2_21, P2_22 = grad_P2_2[:, 0], grad_P2_2[:, 1]
 
         residual_PDE_1 = -0.5841 * varphi_11 - 0.5841 * varphi_22 + P1_1 + P2_2
-        
         residual_PDE_2 = (P1 - P1_previous) / self.delta_t - (
                 -2 * 0.148 * P1 - 4 * 0.031 * P1 ** 3 + 2 * 0.63 * P1 * P2 ** 2 + 6 * 0.25 * P1 ** 5 + 0.97 * (
                 2 * P1 * P2 ** 4 + 4 * P1 ** 3 * P2 ** 2)) + 0.15 * P1_11 - 0.15 * P2_21 + 0.15 * (
@@ -246,77 +247,45 @@ class Pinns:
         u_end = self.approximate_solution(input_int)
         return u_end
 
-    def fit(self, num_epochs, max_iter, lr, verbose=True):
-        '''Train process'''
-
-        # Training preparation
-        self.approximate_solution.train()
-        best_loss, best_epoch, best_state = np.inf, -1, None
-        losses = []
-
-        epoch = {
-            "lbfgs": max_iter,
-            "adam": num_epochs
-        }[self.optimizer_name]
-        #pbar = tqdm(range(epoch), desc = 'Epoch', colour='blue')
-
-
+    def fit(self, num_epochs, optimizer, verbose=True):
+        history = []
         u_end = None  # 初始化 u_end
 
-        def train_batch(batch_sb, batch_int):
-            inp_train_sb = batch_sb[0].to(self.device)
-            inp_train_int = batch_int[0].to(self.device)
+        # 记录开始时间
+        start_time = time.time()
 
-            def closure():
-                optimizer.zero_grad()
-                loss = self.compute_loss(inp_train_sb, inp_train_int, verbose=verbose)
-                # backpropragation
-                loss.backward()
-                
-                # recording
-                losses.append(loss.item())
-                return loss
-            
-            optimizer.step(closure=closure)
+        for epoch in range(num_epochs):
+            if verbose:
+                print("################################ ", epoch, " ################################")
 
-        # training 
-        if self.optimizer_name == "lbfgs":
-            pbar = tqdm(total=len(self.training_set_sb), desc='Batch', colour='blue') # Progress bar for LBFGS based on batches
-            optimizer = torch.optim.LBFGS(self.approximate_solution.parameters(), lr=lr, max_iter=max_iter, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=100, line_search_fn=None)
+            # Iterate through batches of training_set_int and training_set_sb
             for j, (batch_sb, batch_int) in enumerate(zip(self.training_set_sb, self.training_set_int)):
-                train_batch(batch_sb, batch_int)
-            pbar.set_postfix(loss=losses[-1])
-            pbar.update(1)
-            pbar.close()
+                inp_train_sb = batch_sb[0].to(self.device)
+                inp_train_int = batch_int[0].to(self.device)
 
-        elif self.optimizer_name == "adam":
-            pbar = tqdm(total=num_epochs, desc='Epoch', colour='blue') # Progress bar for Adam based on epochs
-            optimizer = torch.optim.Adam(self.approximate_solution.parameters(), lr=lr)
-            
-            for ep in range(num_epochs):
-                for j, (batch_sb, batch_int) in enumerate(zip(self.training_set_sb, self.training_set_int)):
-                    train_batch(batch_sb, batch_int)
+                def closure():
+                    optimizer.zero_grad()
+                    loss = self.compute_loss(inp_train_sb, inp_train_int, verbose=verbose)
+                    loss.backward(retain_graph=True)
+                    optimizer.step()
 
-                    #save model
-                    if losses[-1] < best_loss:
-                        best_epoch = ep
-                        best_loss = losses[-1]
-                        best_state = deepcopy(self.approximate_solution.state_dict())
+                    history.append(loss.item())
+                    return loss
 
-                        best_loss = losses[-1]
-                pbar.set_postfix(loss=np.mean(losses[-len(self.training_set_sb):]))
-                pbar.update(1)
-            pbar.close()
-                    
-            self.approximate_solution.load_state_dict(best_state)
-            self.save_checkpoint()
+                optimizer.step(closure=closure)
 
+                # 在这里计算 u_end
+                u_end = self.calculate_u_end(inp_train_int)
 
-            
-            # 在这里计算 u_end
-        for batch_int in self.training_set_int:
-            u_end = self.calculate_u_end(batch_int[0].to(self.device))
-        return losses, u_end
+        # 记录结束时间
+        end_time = time.time()
+
+        # 计算执行时间
+        execution_time = end_time - start_time
+
+        print('Final Loss: ', history[-1])
+        print('Execution Time: {:.2f} seconds'.format(execution_time))
+        return history, u_end
 
     def save_checkpoint(self):
         '''save model and optimizer'''
@@ -329,3 +298,56 @@ class Pinns:
         checkpoint = torch.load(self.pre_model_save_path)
         self.approximate_solution.load_state_dict(checkpoint['model_state_dict'])
         print('Pretrained model loaded!')
+
+
+n_int = 10000
+n_sb = 200
+delta_t = 0.01
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#device = torch.device('cpu')
+pre_model_save_path = None
+save_path = './results/ADAM_test_1.pt'
+
+networks = []  # List to store networks for each time interval
+time_intervals = []  # List to store corresponding time intervals
+initial_data = pd.read_csv('initial_0.csv').values
+u_previous = torch.tensor(initial_data, dtype=torch.float32)
+
+for i in range(10):
+    start_time = i * delta_t
+    end_time = (i + 1) * delta_t
+    time_intervals.append((start_time, end_time))
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # Create PINN object with previous solution
+    Temporal_PINN = Pinns(n_int, n_sb, save_path, pre_model_save_path, device, delta_t, u_previous)
+    Temporal_PINN.approximate_solution.to(device)
+    n_epochs = 1000
+    optimizer_LBFGS = optim.LBFGS(Temporal_PINN.approximate_solution.parameters(),
+                                  lr=float(0.5),
+                                  max_iter=1000,
+                                  max_eval=50000,
+                                  history_size=150,
+                                  line_search_fn="strong_wolfe",
+                                  tolerance_change=1.0 * np.finfo(float).eps)
+    optimizer_ADAM = optim.Adam(Temporal_PINN.approximate_solution.parameters(),
+                                lr=float(0.001))
+
+    print(f"Training network for time interval [{i * Temporal_PINN.delta_t}, {(i + 1) * Temporal_PINN.delta_t}]")
+    _, u_end = Temporal_PINN.fit(num_epochs=n_epochs, optimizer=optimizer_ADAM, verbose=True)  # Fit the PINN
+
+    # Save the current solution for the next time step
+    u_previous = u_end
+    u_previous = u_previous.to(device)
+
+    #print(u_previous.shape)
+    networks.append(Temporal_PINN)
+
+    # Save u_previous to i_output.csv
+    output_filename = f"{i+1}_output.csv"
+    with open(output_filename, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(u_previous.detach().cpu().numpy())
+
