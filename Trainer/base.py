@@ -10,7 +10,7 @@ from tqdm import tqdm
 import time
 from copy import deepcopy
 import os
-# from .utils import StrgirdEngine
+from .utils import Plot2D
 
 
 
@@ -246,10 +246,6 @@ class Pinns:
 
         return loss, loss_sb, loss_int
 
-    def calculate_u_end(self, input_int):
-        u_end = self.approximate_solution(input_int)
-        return u_end
-
     def fit(self, num_epochs, max_iter, lr, verbose=True):
         '''Train process'''
 
@@ -324,11 +320,14 @@ class Pinns:
 
 
             
-            # 在这里计算 u_end
-        for batch_int in self.training_set_int:
-            u_end = self.calculate_u_end(batch_int[0].to(self.device))
-
         
+
+        # plot prediction results
+        with torch.no_grad():
+            u_end = self.approximate_solution(list(self.training_set_int)[0][0].to(self.device))
+        
+        Plot2D.Contour2D(nodecoords=np.array(list(self.training_set_int)[0][0]),sol=u_end[:,0].cpu().numpy(), savefig=True,figname = 'Result' )
+
         # plot losses vs epoch
         fig, ax = plt.subplots(figsize=(12, 8))
         ax.plot(np.arange(len(losses)), losses, label="loss")
@@ -344,7 +343,10 @@ class Pinns:
         ax.set_yscale('log')
         plt.savefig(f'loss.png')
 
-        return losses, u_end
+        return u_end
+
+    def testing():
+        pass
 
     def save_checkpoint(self):
         '''save model and optimizer'''

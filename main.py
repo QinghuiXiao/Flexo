@@ -15,7 +15,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_sb', type=int, default=100)
     parser.add_argument('--nt', type=int, default=10)
     parser.add_argument('--delta_t', type=float, default=0.01)
-    parser.add_argument('--save_path', type=str, default='./results/ADAM_test_1.pt')
+    parser.add_argument('--save_path', type=str, default='./results/ADAM_test.pt')
     parser.add_argument('--pre_model_save_path', type=str, default=None)
     parser.add_argument('--optimizer', type=str, default="adam")
     parser.add_argument('--lr', type=float, default=1e-3)
