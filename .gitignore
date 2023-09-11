@@ -1,4 +1,7 @@
 model/
 figure/
+output_csv/
+result_plot/
+results/
 data/
 **/__pycache__/
