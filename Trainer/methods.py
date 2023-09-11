@@ -24,7 +24,7 @@ def TemporalPINN(n_int=10000, n_sb=100, nt=10, delta_t=0.01, epochs=1000, device
         Temporal_PINN = Pinns(n_int, n_sb, save_path, pre_model_save_path, device, delta_t, u_previous, optimizer)
             
         print(f"Training for time interval {i}")
-        _, u_end = Temporal_PINN.fit(num_epochs=epochs, max_iter=iters, lr = lr, verbose=True)  # Fit the PINN
+        _, u_end = Temporal_PINN.fit(num_epochs=epochs, max_iter=iters, lr = lr, verbose=False)  # Fit the PINN
 
         u_previous = u_end.detach() # Update the initial condition for the next time interval
         networks.append(Temporal_PINN)

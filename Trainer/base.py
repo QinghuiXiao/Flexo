@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+#from torch.utils.tensorboard import SummaryWriter
 
 from torch.utils.data import DataLoader
 from .model import NeuralNet
@@ -38,6 +39,8 @@ class Pinns:
                                               regularization_param=0.,
                                               regularization_exp=2.,
                                               retrain_seed=42).to(self.device)
+     #   self.writer = SummaryWriter(log_dir="training_log")
+     #   self.tags = ["total_loss","pde_loss", "bc_loss","learning_rate"]
 
         '''self.approximate_solution = MultiVariatePoly(3, 3)'''
 
@@ -205,7 +208,7 @@ class Pinns:
         u = self.approximate_solution(input_bc)
         P1 = u[:, 0].reshape(-1, 1)
         P2 = u[:, 1].reshape(-1, 1)
-
+        
         grad_P1 = torch.autograd.grad(P1.sum(), input_bc, create_graph=True)[0]
         P1_1, P1_2 = grad_P1[:, 0], grad_P1[:, 1]
         grad_P2 = torch.autograd.grad(P2.sum(), input_bc, create_graph=True)[0]
@@ -240,7 +243,7 @@ class Pinns:
                   "| BC Loss: ", round(torch.log10(loss_sb).item(), 4),
                   "| PDE Loss: ", round(torch.log10(loss_int).item(), 4))
 
-        return loss
+        return loss, loss_sb, loss_int
 
     def calculate_u_end(self, input_int):
         u_end = self.approximate_solution(input_int)
@@ -253,6 +256,8 @@ class Pinns:
         self.approximate_solution.train()
         best_loss, best_epoch, best_state = np.inf, -1, None
         losses = []
+        losses_int = []
+        losses_sb = []
 
         epoch = {
             "lbfgs": max_iter,
@@ -269,22 +274,25 @@ class Pinns:
 
             def closure():
                 optimizer.zero_grad()
-                loss = self.compute_loss(inp_train_sb, inp_train_int, verbose=verbose)
+                loss,loss_sb, loss_int = self.compute_loss(inp_train_sb, inp_train_int, verbose=verbose)
                 # backpropragation
                 loss.backward()
                 
                 # recording
                 losses.append(loss.item())
+                losses_int.append(loss_int.item())
+                losses_sb.append(loss_int.item())
                 return loss
             
-            optimizer.step(closure=closure)
+            return closure
 
         # training 
         if self.optimizer_name == "lbfgs":
             pbar = tqdm(total=len(self.training_set_sb), desc='Batch', colour='blue') # Progress bar for LBFGS based on batches
             optimizer = torch.optim.LBFGS(self.approximate_solution.parameters(), lr=lr, max_iter=max_iter, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=100, line_search_fn=None)
+            
             for j, (batch_sb, batch_int) in enumerate(zip(self.training_set_sb, self.training_set_int)):
-                train_batch(batch_sb, batch_int)
+                optimizer.step(closure=train_batch(batch_sb, batch_int))
             pbar.set_postfix(loss=losses[-1])
             pbar.update(1)
             pbar.close()
@@ -295,7 +303,9 @@ class Pinns:
             
             for ep in range(num_epochs):
                 for j, (batch_sb, batch_int) in enumerate(zip(self.training_set_sb, self.training_set_int)):
-                    train_batch(batch_sb, batch_int)
+
+                    train_batch(batch_sb, batch_int)()
+                    optimizer.step()
 
                     #save model
                     if losses[-1] < best_loss:
@@ -316,6 +326,23 @@ class Pinns:
             # 在这里计算 u_end
         for batch_int in self.training_set_int:
             u_end = self.calculate_u_end(batch_int[0].to(self.device))
+
+        
+        # plot losses vs epoch
+        fig, ax = plt.subplots(figsize=(12, 8))
+        ax.plot(np.arange(len(losses)), losses, label="loss")
+        ax.plot(np.arange(len(losses_int)), losses_int, label="loss_int")
+        ax.plot(np.arange(len(losses_sb)), losses_sb, label="loss_sb")
+        if best_epoch != -1:
+            ax.scatter([best_epoch],[best_loss], c='r', marker='o', label="best loss")
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('Loss')
+        ax.set_title('Loss vs Epoch')
+        ax.legend()
+        ax.set_xlim(left=0)
+        ax.set_yscale('log')
+        plt.savefig(f'loss.png')
+
         return losses, u_end
 
     def save_checkpoint(self):
