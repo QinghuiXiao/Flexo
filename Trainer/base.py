@@ -10,7 +10,7 @@ from tqdm import tqdm
 import time
 from copy import deepcopy
 import os
-
+# from .utils import StrgirdEngine
 
 
 
@@ -49,6 +49,7 @@ class Pinns:
 
         # Generator of Sobol sequences
         self.soboleng = torch.quasirandom.SobolEngine(dimension=2)
+        # TODO self.strueng = StrgirdEngine(dimension=2)
 
         # Training sets S_sb, S_tb, S_int as torch dataloader
         self.training_set_sb, self.training_set_int = self.assemble_datasets()
