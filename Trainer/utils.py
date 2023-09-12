@@ -9,7 +9,7 @@ class Plot2D:
         x, y=nodecoords[:, 0],nodecoords[:, 1]
         xmin, xmax = np.min(x), np.max(x)
         ymin, ymax = np.min(y), np.max(y)
-        X, Y = np.meshgrid(np.linspace(xmin, xmax, 30), np.linspace(ymin, ymax, 20))
+        X, Y = np.meshgrid(np.linspace(xmin, xmax, 100), np.linspace(ymin, ymax, 100))
         P1 = sol[:, 0]
         P2 = sol[:, 1]
         magnitude = np.sqrt(P1**2 + P2**2)
