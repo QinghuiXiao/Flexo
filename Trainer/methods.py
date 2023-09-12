@@ -31,7 +31,7 @@ def TemporalPINN(n_int=10000, n_sb=100, nt=10, delta_t=0.01, epochs=1000, device
         print(f"Training for time interval {i} complete")
 
         # Save u_previous to i_output.csv
-        output_filename = f"output_csv/{i+1}_output.csv"
+        output_filename = f"output_csv/{i}_output.csv"
         with open(output_filename, mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerows(u_previous.cpu().numpy())

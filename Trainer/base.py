@@ -27,6 +27,16 @@ class Pinns:
         self.device = device_
         self.u_previous = u_previous_.to(self.device)
 
+        #PDE parameters
+        self.L = 100
+        self.alpha_1 = -0.148
+        self.alpha_11 = -0.031
+        self.alpha_12 = 0.63
+        self.alpha_111 = 0.25
+        self.alpha_112 = 0.97
+        self.epsilon_0 = 0.5841
+        self.g = 0.15
+
         self.domain_extrema = torch.tensor([[0, 50],  # x dimension
                                             [0, 50]])  # y dimension
 
@@ -132,19 +142,21 @@ class Pinns:
 
         grad_P2_1 = torch.autograd.grad(P2_1.sum(), input_int, create_graph=True)[0]
         P2_11, P2_12 = grad_P2_1[:, 0], grad_P2_1[:, 1]
-        grad_P2_2 = torch.autograd.grad(P1_2.sum(), input_int, create_graph=True)[0]
+        grad_P2_2 = torch.autograd.grad(P2_2.sum(), input_int, create_graph=True)[0]
         P2_21, P2_22 = grad_P2_2[:, 0], grad_P2_2[:, 1]
 
-        residual_PDE_1 = -0.5841 * varphi_11 - 0.5841 * varphi_22 + P1_1 + P2_2
-        
-        residual_PDE_2 = (P1 - P1_previous) / self.delta_t - (
-                -2 * 0.148 * P1 - 4 * 0.031 * P1 ** 3 + 2 * 0.63 * P1 * P2 ** 2 + 6 * 0.25 * P1 ** 5 + 0.97 * (
-                2 * P1 * P2 ** 4 + 4 * P1 ** 3 * P2 ** 2)) + 0.15 * P1_11 - 0.15 * P2_21 + 0.15 * (
-                                 P2_12 + P1_22) - varphi_1
-        residual_PDE_3 = (P2 - P2_previous) / self.delta_t - (
-                -2 * 0.148 * P2 - 4 * 0.031 * P2 ** 3 + 2 * 0.63 * P2 * P1 ** 2 + 6 * 0.25 * P2 ** 5 + 0.97 * (
-                2 * P2 * P1 ** 4 + 4 * P2 ** 3 * P1 ** 2)) + 0.15 * (
-                                 P2_11 + P1_21) - 0.15 * P1_12 + 0.15 * P2_22 - varphi_2
+        residual_PDE_1 = -self.epsilon_0 * varphi_11 - self.epsilon_0 * varphi_22 + P1_1 + P2_2
+
+        residual_PDE_2 = (1 / self.L) * (P1 - P1_previous) / self.delta_t - (
+                + 2 * self.alpha_1 * P1 + 4 * self.alpha_11 * P1 ** 3 + 2 * self.alpha_12 * P1 * P2 ** 2
+                + 6 * self.alpha_111 * P1 ** 5 + self.alpha_112 * (
+                            2 * P1 * P2 ** 4 + 4 * P1 ** 3 * P2 ** 2)) + self.g * P1_11 + self.g * P1_22 - varphi_1
+
+        residual_PDE_3 = (1 / self.L) * (P2 - P2_previous) / self.delta_t - (
+                + 2 * self.alpha_1 * P2 + 4 * self.alpha_11 * P2 ** 3 + 2 * self.alpha_12 * P2 * P1 ** 2
+                + 6 * self.alpha_111 * P2 ** 5 + self.alpha_112 * (
+                            2 * P2 * P1 ** 4 + 4 * P2 ** 3 * P1 ** 2)) + self.g * P2_11 + self.g * P2_22 - varphi_2
+
 
         return residual_PDE_1.reshape(-1, ), residual_PDE_2.reshape(-1, ), residual_PDE_3.reshape(-1, )
 
@@ -235,16 +247,21 @@ class Pinns:
             abs(r_sbL_1) ** 2) + torch.mean(abs(r_sbL_2) ** 2) + torch.mean(
             abs(r_sbR_1) ** 2) + torch.mean(abs(r_sbR_2) ** 2)
 
-        loss_int = torch.mean(abs(r_int_1) ** 2) + torch.mean(abs(r_int_2) ** 2) + torch.mean(abs(r_int_3) ** 2)
+        #loss_int = torch.mean(abs(r_int_1) ** 2) + torch.mean(abs(r_int_2) ** 2) + torch.mean(abs(r_int_3) ** 2)
+        loss_int_1 = torch.mean(abs(r_int_1) ** 2)
+        loss_int_2 = torch.mean(abs(r_int_2) ** 2)
+        loss_int_3 = torch.mean(abs(r_int_3) ** 2)
 
-        loss = torch.log10(loss_sb + loss_int)
+        loss = loss_sb + loss_int_1 + loss_int_2 + loss_int_3
 
         if verbose:
-            print("Total loss: ", round(loss.item(), 4),
+            print("Total loss: ", round(torch.log10(loss).item(), 4),
                   "| BC Loss: ", round(torch.log10(loss_sb).item(), 4),
-                  "| PDE Loss: ", round(torch.log10(loss_int).item(), 4))
+                  "| PDE_1 Loss: ", round(torch.log10(loss_int_1).item(), 4),
+                  "| PDE_2 Loss: ", round(torch.log10(loss_int_2).item(), 4),
+                  "| PDE_3 Loss: ", round(torch.log10(loss_int_3).item(), 4))
 
-        return loss, loss_sb, loss_int
+        return loss, loss_sb, loss_int_1, loss_int_2, loss_int_3
 
     def fit(self, num_epochs, max_iter, lr, verbose=True):
         '''Train process'''
@@ -253,8 +270,10 @@ class Pinns:
         self.approximate_solution.train()
         best_loss, best_epoch, best_state = np.inf, -1, None
         losses = []
-        losses_int = []
         losses_sb = []
+        losses_int_1 = []
+        losses_int_2 = []
+        losses_int_3 = []
 
         epoch = {
             "lbfgs": max_iter,
@@ -271,14 +290,16 @@ class Pinns:
 
             def closure():
                 optimizer.zero_grad()
-                loss,loss_sb, loss_int = self.compute_loss(inp_train_sb, inp_train_int, verbose=verbose)
+                loss, loss_sb, loss_int_1, loss_int_2, loss_int_3 = self.compute_loss(inp_train_sb, inp_train_int, verbose=verbose)
                 # backpropragation
                 loss.backward()
                 
                 # recording
                 losses.append(loss.item())
-                losses_int.append(loss_int.item())
-                losses_sb.append(loss_int.item())
+                losses_int_1.append(loss_int_1.item())
+                losses_int_2.append(loss_int_2.item())
+                losses_int_3.append(loss_int_3.item())
+                losses_sb.append(loss_sb.item())
                 return loss
             
             return closure
@@ -317,9 +338,6 @@ class Pinns:
                     
             self.approximate_solution.load_state_dict(best_state)
             self.save_checkpoint()
-
-
-            
         
 
         # plot prediction results
@@ -331,7 +349,9 @@ class Pinns:
         # plot losses vs epoch
         fig, ax = plt.subplots(figsize=(12, 8))
         ax.plot(np.arange(len(losses)), losses, label="loss")
-        ax.plot(np.arange(len(losses_int)), losses_int, label="loss_int")
+        ax.plot(np.arange(len(losses_int_1)), losses_int_1, label="loss_int_1")
+        ax.plot(np.arange(len(losses_int_2)), losses_int_2, label="loss_int_2")
+        ax.plot(np.arange(len(losses_int_3)), losses_int_3, label="loss_int_3")
         ax.plot(np.arange(len(losses_sb)), losses_sb, label="loss_sb")
         if best_epoch != -1:
             ax.scatter([best_epoch],[best_loss], c='r', marker='o', label="best loss")
@@ -343,7 +363,7 @@ class Pinns:
         ax.set_yscale('log')
         plt.savefig(f'loss.png')
 
-        return u_end
+        return loss, u_end
 
     def testing():
         pass
