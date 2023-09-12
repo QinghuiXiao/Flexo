@@ -11,7 +11,7 @@ import time
 from copy import deepcopy
 import os
 from .utils import Plot2D
-
+from .utils import StrgridEngine
 
 
 class Pinns:
@@ -37,8 +37,8 @@ class Pinns:
         self.epsilon_0 = 0.5841
         self.g = 0.15
 
-        self.domain_extrema = torch.tensor([[0, 50],  # x dimension
-                                            [0, 50]])  # y dimension
+        self.domain_extrema = torch.tensor([[0, 30],  # x dimension
+                                            [0, 20]])  # y dimension
 
         # Number of space dimensions
         self.space_dimensions = 2
@@ -59,7 +59,8 @@ class Pinns:
 
         # Generator of Sobol sequences
         self.soboleng = torch.quasirandom.SobolEngine(dimension=2)
-        # TODO self.strueng = StrgirdEngine(dimension=2)
+
+        self.strueng = StrgridEngine(dimension=2, grid_size=(30, 20))
 
         # Training sets S_sb, S_tb, S_int as torch dataloader
         self.training_set_sb, self.training_set_int = self.assemble_datasets()
@@ -95,7 +96,7 @@ class Pinns:
         return input_sb
 
     def add_interior_points(self):
-        input_int = self.convert(self.soboleng.draw(self.n_int))
+        input_int = self.convert(self.strueng.generate_structure_grid())
         return input_int
 
     def assemble_datasets(self):
@@ -344,7 +345,7 @@ class Pinns:
         with torch.no_grad():
             u_end = self.approximate_solution(list(self.training_set_int)[0][0].to(self.device))
         
-        Plot2D.Contour2D(nodecoords=np.array(list(self.training_set_int)[0][0]),sol=u_end[:,0].cpu().numpy(), savefig=True,figname = 'Result' )
+        Plot2D.Quiver2D(nodecoords=np.array(list(self.training_set_int)[0][0]), sol=u_end.cpu().numpy(), savefig=True, figname='Result')
 
         # plot losses vs epoch
         fig, ax = plt.subplots(figsize=(12, 8))
@@ -363,7 +364,7 @@ class Pinns:
         ax.set_yscale('log')
         plt.savefig(f'loss.png')
 
-        return loss, u_end
+        return u_end
 
     def testing():
         pass
