@@ -6,7 +6,7 @@ import csv
 import time
 
 
-def TemporalPINN(n_int=10000, n_sb=100, nt=10, delta_t=0.01, epochs=1000, device = "cpu", seed=42, save_path = './results/ADAM_test.pt', 
+def TemporalPINN(n_int=600, n_sb=100, nt=1, delta_t=0.01, epochs=1000, device = "cpu", seed=42, save_path = './results/ADAM_test.pt', 
             pre_model_save_path = None, optimizer = "adam", lr = 1e-3, iters =1):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -15,7 +15,7 @@ def TemporalPINN(n_int=10000, n_sb=100, nt=10, delta_t=0.01, epochs=1000, device
 
     networks=[] # List to store networks for each time interval
     time_intervals = [] # List to store corresponding time intervals
-    u_previous = torch.tensor(pd.read_csv('initial_0.csv').values, dtype=torch.float32, device=device) # Initial condition
+    u_previous = torch.tensor(pd.read_csv('initial_0.csv').values[0:600, :], dtype=torch.float32, device=device) # Initial condition
 
 
     for i in range(1, nt+1):

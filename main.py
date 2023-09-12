@@ -11,9 +11,9 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', type=int, default=1000)
     parser.add_argument('--iters', type=int, default=1)
 
-    parser.add_argument('--n_int', type=int, default=10000)
+    parser.add_argument('--n_int', type=int, default=600)
     parser.add_argument('--n_sb', type=int, default=100)
-    parser.add_argument('--nt', type=int, default=10)
+    parser.add_argument('--nt', type=int, default=1)
     parser.add_argument('--delta_t', type=float, default=0.01)
     parser.add_argument('--save_path', type=str, default='./results/ADAM_test.pt')
     parser.add_argument('--pre_model_save_path', type=str, default=None)
