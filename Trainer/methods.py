@@ -6,25 +6,24 @@ import csv
 import time
 
 
-def TemporalPINN(n_int=600, n_sb=100, nt=1, delta_t=0.01, epochs=1000, device = "cpu", seed=42, save_path = './results/ADAM_test.pt', 
-            pre_model_save_path = None, optimizer = "adam", lr = 1e-3, iters =1):
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
+def TemporalPINN(args):
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    np.random.seed(args.seed)
 
     networks=[] # List to store networks for each time interval
     time_intervals = [] # List to store corresponding time intervals
-    u_previous = torch.tensor(pd.read_csv('initial_0.csv').values[0:600, :], dtype=torch.float32, device=device) # Initial condition
+    u_previous = torch.tensor(pd.read_csv('initial_0.csv').values[0:args.n_int, :], dtype=torch.float32, device=args.device) # Initial condition
 
 
-    for i in range(1, nt+1):
-        time_intervals.append(i*delta_t)
+    for i in range(1, args.nt+1):
+        time_intervals.append(i*args.delta_t)
 
-        Temporal_PINN = Pinns(n_int, n_sb, save_path, pre_model_save_path, device, delta_t, u_previous, optimizer)
+        Temporal_PINN = Pinns(config=args, u_previous_=u_previous)
             
         print(f"Training for time interval {i}")
-        u_end = Temporal_PINN.fit(num_epochs=epochs, max_iter=iters, lr = lr, verbose=False)  # Fit the PINN
+        u_end = Temporal_PINN.fit(num_epochs=args.epochs, max_iter=args.iters, lr = args.lr, verbose=False)  # Fit the PINN
 
         u_previous = u_end # Update the initial condition for the next time interval
         networks.append(Temporal_PINN)

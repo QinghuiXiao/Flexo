@@ -15,17 +15,19 @@ from .utils import StrgridEngine
 
 
 class Pinns:
-    def __init__(self, n_int_, n_sb_, save_dir_, pre_model_save_path_, device_, delta_t_, u_previous_, optimizer_):
-        self.pre_model_save_path = pre_model_save_path_
-        self.save_dir = save_dir_
+    def __init__(self, config, u_previous_):
+        self.config = config
+        self.pre_model_save_path = config.pre_model_save_path
+        self.save_dir = config.save_path
 
-        self.n_int = n_int_
-        self.n_sb = n_sb_
-        self.delta_t = delta_t_
-        self.optimizer_name = optimizer_
+        self.n_int = config.n_int
+        self.n_sb = config.n_sb
+        self.delta_t = config.delta_t
+        self.optimizer_name = config.optimizer
 
-        self.device = device_
+        self.device = config.device
         self.u_previous = u_previous_.to(self.device)
+        
 
         #PDE parameters
         self.L = 100
@@ -44,8 +46,8 @@ class Pinns:
         self.space_dimensions = 2
 
         self.approximate_solution = NeuralNet(input_dimension=self.domain_extrema.shape[0], output_dimension=3,
-                                              n_hidden_layers=4,
-                                              neurons=20,
+                                              n_hidden_layers=self.config.n_hidden_layers,
+                                              neurons=self.config.neurons,
                                               regularization_param=0.,
                                               regularization_exp=2.,
                                               retrain_seed=42).to(self.device)
@@ -54,7 +56,7 @@ class Pinns:
 
         '''self.approximate_solution = MultiVariatePoly(3, 3)'''
 
-        if pre_model_save_path_:
+        if self.pre_model_save_path:
             self.load_checkpoint()
 
         # Generator of Sobol sequences
@@ -64,6 +66,9 @@ class Pinns:
 
         # Training sets S_sb, S_tb, S_int as torch dataloader
         self.training_set_sb, self.training_set_int = self.assemble_datasets()
+
+        # Optimizer
+        self.init_optimizer()
 
     ################################################################################################
     # Function to linearly transform a tensor whose value are between 0 and 1
@@ -264,6 +269,26 @@ class Pinns:
 
         return loss, loss_sb, loss_int_1, loss_int_2, loss_int_3
 
+    def init_optimizer(self):
+        '''Initialize optimizer'''
+        if self.optimizer_name == "lbfgs":
+            self.optimizer = torch.optim.LBFGS(self.approximate_solution.parameters(), lr=float(0.5), max_iter=self.config.max_iter,
+                                               max_eval=50000, tolerance_change=1.0 * np.finfo(float).eps,
+                                               history_size=150, line_search_fn="strong_wolfe")
+        elif self.optimizer_name == "adam":
+            self.optimizer = torch.optim.Adam(self.approximate_solution.parameters(), lr=self.config.lr)
+
+        else:
+            raise NotImplementedError(f"Optimizer {self.optimizer_name} not implemented")
+        
+        # init scheduler
+        if self.config.use_scheduler:
+            self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=self.config.scheduler_step_size, gamma=self.config.scheduler_gamma)
+            if self.config.optimizer == "lbfgs":
+                raise NotImplementedError(f"Scheduler not implemented for optimizer {self.config.optimizer}")
+        else:
+            self.scheduler = None
+    
     def fit(self, num_epochs, max_iter, lr, verbose=True):
         '''Train process'''
 
@@ -290,7 +315,7 @@ class Pinns:
             inp_train_int = batch_int[0].to(self.device)
 
             def closure():
-                optimizer.zero_grad()
+                self.optimizer.zero_grad()
                 loss, loss_sb, loss_int_1, loss_int_2, loss_int_3 = self.compute_loss(inp_train_sb, inp_train_int, verbose=verbose)
                 # backpropragation
                 loss.backward()
@@ -308,23 +333,25 @@ class Pinns:
         # training 
         if self.optimizer_name == "lbfgs":
             pbar = tqdm(total=len(self.training_set_sb), desc='Batch', colour='blue') # Progress bar for LBFGS based on batches
-            optimizer = torch.optim.LBFGS(self.approximate_solution.parameters(), lr=lr, max_iter=max_iter, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=100, line_search_fn=None)
+            #optimizer = torch.optim.LBFGS(self.approximate_solution.parameters(), lr=lr, max_iter=max_iter, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=100, line_search_fn=None)
             
             for j, (batch_sb, batch_int) in enumerate(zip(self.training_set_sb, self.training_set_int)):
-                optimizer.step(closure=train_batch(batch_sb, batch_int))
+                self.optimizer.step(closure=train_batch(batch_sb, batch_int))
             pbar.set_postfix(loss=losses[-1])
             pbar.update(1)
             pbar.close()
 
         elif self.optimizer_name == "adam":
             pbar = tqdm(total=num_epochs, desc='Epoch', colour='blue') # Progress bar for Adam based on epochs
-            optimizer = torch.optim.Adam(self.approximate_solution.parameters(), lr=lr)
+            #optimizer = torch.optim.Adam(self.approximate_solution.parameters(), lr=lr)
             
             for ep in range(num_epochs):
                 for j, (batch_sb, batch_int) in enumerate(zip(self.training_set_sb, self.training_set_int)):
 
                     train_batch(batch_sb, batch_int)()
-                    optimizer.step()
+                    self.optimizer.step()
+                    if self.config.use_scheduler:
+                        self.scheduler.step()
 
                     #save model
                     if losses[-1] < best_loss:
@@ -336,16 +363,15 @@ class Pinns:
                 pbar.set_postfix(loss=np.mean(losses[-len(self.training_set_sb):]))
                 pbar.update(1)
             pbar.close()
-                    
+            
             self.approximate_solution.load_state_dict(best_state)
             self.save_checkpoint()
-        
 
         # plot prediction results
         with torch.no_grad():
             u_end = self.approximate_solution(list(self.training_set_int)[0][0].to(self.device))
         
-        Plot2D.Quiver2D(nodecoords=np.array(list(self.training_set_int)[0][0]), sol=u_end.cpu().numpy(), savefig=True, figname='Result')
+        #Plot2D.Quiver2D(nodecoords=np.array(list(self.training_set_int)[0][0]), sol=u_end.cpu().numpy(), savefig=True, figname='Result')
 
         # plot losses vs epoch
         fig, ax = plt.subplots(figsize=(12, 8))
@@ -363,6 +389,7 @@ class Pinns:
         ax.set_xlim(left=0)
         ax.set_yscale('log')
         plt.savefig(f'loss.png')
+        
 
         return u_end
 

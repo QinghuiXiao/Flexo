@@ -1,10 +1,32 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
+import torch
 #from matplotlib.mlab import griddata
 
 class Plot2D:
+    def Contour2D(nodecoords, sol, savefig=False, figname=''):
+        fig, ax = plt.subplots(constrained_layout=True)
+        x, y=nodecoords[:, 0],nodecoords[:, 1]
+        xmin, xmax = np.min(x), np.max(x)
+        ymin, ymax = np.min(y), np.max(y)
+        X, Y = np.meshgrid(np.linspace(xmin, xmax, 100), np.linspace(ymin, ymax, 100))
+        Z = griddata(nodecoords, sol, (X, Y), method='linear') # cubic, linear, nearest
+        cs= plt.contourf(X, Y, Z, 100, cmap='jet', levels=200)
+        fig.colorbar(cs)
+        ax.axis('equal')
+
+        if savefig:
+            if len(figname)>4:
+                fig.savefig(figname,dpi=300,bbox_inches='tight')
+                print('save results to ',figname)
+            else:
+                fig.savefig('result.jpg',dpi=300,bbox_inches='tight')
+                print('save result to result.jpg')
+
+
     def Quiver2D(nodecoords, sol, savefig=False, figname=''):
+        breakpoint()
         fig, ax = plt.subplots(constrained_layout=True)
         x, y=nodecoords[:, 0],nodecoords[:, 1]
         xmin, xmax = np.min(x), np.max(x)
@@ -12,9 +34,9 @@ class Plot2D:
         X, Y = np.meshgrid(np.linspace(xmin, xmax, 100), np.linspace(ymin, ymax, 100))
         P1 = sol[:, 0]
         P2 = sol[:, 1]
-        magnitude = np.sqrt(P1**2 + P2**2)
-        P1_normalized = P1 / magnitude
-        P2_normalized = P2 / magnitude
+        magnitude = griddata(nodecoords, np.sqrt(P1**2 + P2**2), (X, Y), method='linear') 
+        P1_normalized = griddata(nodecoords, P1 / magnitude, (X, Y), method='linear') # cubic, linear, nearest
+        P2_normalized = griddata(nodecoords, P2 / magnitude, (X, Y), method='linear')
 
         cs= plt.quiver(X, Y, P1_normalized, P2_normalized, magnitude, angles='xy', scale_units='xy', scale=1, cmap='jet')
 
