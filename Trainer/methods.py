@@ -1,6 +1,7 @@
 import torch
 import numpy as np  
 from .base import Pinns
+from .base import Pinns2
 import pandas as pd
 import csv
 import time
@@ -34,6 +35,18 @@ def TemporalPINN(args):
         with open(output_filename, mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerows(u_previous.cpu().numpy())
+
+def CtemporalPINN(args):
+
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    np.random.seed(args.seed)
+
+    Ctemporal_PINN = Pinns2(config=args)
+    hist = Ctemporal_PINN.fit(num_epochs=args.epochs, max_iter=args.iters, lr=args.lr, verbose=True)
+    Ctemporal_PINN.plotting()
+
 
 
 
