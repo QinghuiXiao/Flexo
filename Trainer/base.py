@@ -734,7 +734,7 @@ class Pinns2:
                 # recording
                 losses.append(loss.item())
                 losses_sb.append(loss_sb.item())
-                losses_tb.append(loss_sb.item())
+                losses_tb.append(loss_tb.item())
                 losses_int.append(loss_int.item())
 
                 return loss
@@ -787,7 +787,7 @@ class Pinns2:
         fig, ax = plt.subplots(figsize=(12, 8))
         ax.plot(np.arange(len(losses)), losses, label="loss")
         ax.plot(np.arange(len(losses_sb)), losses_sb, label="loss_sb")
-        ax.plot(np.arange(len(losses_tb)), losses_sb, label="loss_tb")
+        ax.plot(np.arange(len(losses_tb)), losses_tb, label="loss_tb")
         ax.plot(np.arange(len(losses_int)), losses_int, label="loss_int")
 
         if best_epoch != -1:

@@ -1,11 +1,12 @@
 import argparse
-from Trainer.methods import TemporalPINN
+from Trainer.methods import TemporalPINN, CTemporalPINN 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--train', action='store_true')
     parser.add_argument('--test', action='store_true')
+    parser.add_argument('--trainer', type=str, default="TemporalPINN", help="trainer: TemporalPINN or CTemporalPINN")
     parser.add_argument('--device', type=str, default="cpu", help="device: cpu or cuda:id")
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--save_path', type=str, default='./results/ADAM_test.pt')
@@ -24,6 +25,7 @@ if __name__ == "__main__":
     # PINN setup
     parser.add_argument('--n_int', type=int, default=600)
     parser.add_argument('--n_sb', type=int, default=100)
+    parser.add_argument('--n_tb', type=int, default=100)
     parser.add_argument('--nt', type=int, default=1)
     parser.add_argument('--delta_t', type=float, default=0.01)
 
@@ -34,6 +36,12 @@ if __name__ == "__main__":
     args=parser.parse_args()
     assert args.train or args.test, "Please specify --train or --test"
 
+    Trainer = {
+        "TemporalPINN": TemporalPINN,
+        "CTemporalPINN": CTemporalPINN
+    }[args.trainer]
+
     if args.train:
-        TemporalPINN(args)
+        Trainer(args)
+
 

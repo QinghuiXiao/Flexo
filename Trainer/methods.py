@@ -36,7 +36,7 @@ def TemporalPINN(args):
             writer = csv.writer(file)
             writer.writerows(u_previous.cpu().numpy())
 
-def CtemporalPINN(args):
+def CTemporalPINN(args):
 
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
@@ -44,7 +44,7 @@ def CtemporalPINN(args):
     np.random.seed(args.seed)
 
     Ctemporal_PINN = Pinns2(config=args)
-    hist = Ctemporal_PINN.fit(num_epochs=args.epochs, max_iter=args.iters, lr=args.lr, verbose=True)
+    hist = Ctemporal_PINN.fit(num_epochs=args.epochs, max_iter=args.iters, lr=args.lr, verbose=False)
     Ctemporal_PINN.plotting()
 
 
