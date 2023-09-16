@@ -648,7 +648,6 @@ class Pinns2:
         residual_R_2 = P2_1 * 1 + P2_2 * 0
 
         return residual_R_1.reshape(-1, ), residual_R_2.reshape(-1, )
-
     # Function to compute the total loss (weighted sum of spatial boundary loss, temporal boundary loss and interior loss)
     def compute_loss(self, inp_train_sb, inp_train_tb, inp_train_int, verbose=True):
         r_int_1, r_int_2, r_int_3 = self.compute_pde_residual(inp_train_int)
@@ -736,6 +735,9 @@ class Pinns2:
                 losses_sb.append(loss_sb.item())
                 losses_tb.append(loss_tb.item())
                 losses_int.append(loss_int.item())
+                if self.config.optimizer == "lbfgs":
+                    pbar.set_postfix(loss=losses[-1])
+                    pbar.update(1)
 
                 return loss
 
@@ -743,16 +745,15 @@ class Pinns2:
 
         # training
         if self.optimizer_name == "lbfgs":
-            pbar = tqdm(total=len(self.training_set_sb), desc='Batch',
+            pbar = tqdm(total=self.config.max_iter, desc='Batch',
                         colour='blue')  # Progress bar for LBFGS based on batches
             # optimizer = torch.optim.LBFGS(self.approximate_solution.parameters(), lr=lr, max_iter=max_iter, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=100, line_search_fn=None)
 
             for j, (batch_sb, batch_tb, batch_int) in enumerate(zip(
                     self.training_set_sb, self.training_set_tb, self.training_set_int)):
                 self.optimizer.step(closure=train_batch(batch_sb, batch_tb, batch_int))
-            pbar.set_postfix(loss=losses[-1])
-            pbar.update(1)
             pbar.close()
+            self.save_checkpoint()
 
         elif self.optimizer_name == "adam":
             pbar = tqdm(total=num_epochs, desc='Epoch', colour='blue')  # Progress bar for Adam based on epochs
