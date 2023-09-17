@@ -527,7 +527,7 @@ class Pinns2:
         input_int = self.add_interior_points()          # S_int
 
         training_set_sb = DataLoader(torch.utils.data.TensorDataset(input_sb),
-                                     batch_size=2 * self.space_dimensions * self.n_sb, shuffle=False)
+                                     batch_size=4 * self.space_dimensions * self.n_sb, shuffle=False)
         training_set_tb = DataLoader(torch.utils.data.TensorDataset(input_tb), batch_size=self.n_tb,
                                      shuffle=False)
         training_set_int = DataLoader(torch.utils.data.TensorDataset(input_int), batch_size=self.n_int,
@@ -539,14 +539,20 @@ class Pinns2:
         P1_previous = self.u_previous[:, 0].reshape(-1, 1)
         P2_previous = self.u_previous[:, 1].reshape(-1, 1)
         varphi_previous = self.u_previous[:, 2].reshape(-1, 1)
+     
 
         input_tb.requires_grad = True
+        
         u = self.approximate_solution(input_tb)
         P1 = u[:, 0].reshape(-1, 1)
         P2 = u[:, 1].reshape(-1, 1)
         varphi = u[:, 2].reshape(-1, 1)
 
         #residual_P = P1 ** 2 + P2 ** 2 - 0.7 ** 2
+        
+        # residual_P1 = P1 - torch.zeros(P1.shape).to(P1.device) #P1_previous
+        # residual_P2 = P2 - torch.full(P2.shape, 0.49).to(P2.device)  #P2_previous
+        # residual_varphi = varphi - torch.zeros(varphi.shape).to(varphi.device) #varphi_previous
         residual_P1 = P1 - P1_previous
         residual_P2 = P2 - P2_previous
         residual_varphi = varphi - varphi_previous
@@ -655,6 +661,7 @@ class Pinns2:
         return residual_L_1.reshape(-1, ), residual_L_2.reshape(-1, )
 
     def compute_bcR_residual(self, input_bc):
+        
 
         u = self.approximate_solution(input_bc)
         P1 = u[:, 0].reshape(-1, 1)
@@ -672,6 +679,7 @@ class Pinns2:
 
     # Function to compute the total loss (weighted sum of spatial boundary loss, temporal boundary loss and interior loss)
     def compute_loss(self, inp_train_sb, inp_train_tb, inp_train_int, verbose=True):
+        
         r_int_1, r_int_2, r_int_3 = self.compute_pde_residual(inp_train_int)
         r_sb_varphi = self.compute_bc_residual(inp_train_sb)
         r_sbU_1, r_sbU_2 = self.compute_bcU_residual(inp_train_sb[0:2*self.n_sb, :])
@@ -679,7 +687,7 @@ class Pinns2:
         r_sbL_1, r_sbL_2 = self.compute_bcL_residual(inp_train_sb[4 * self.n_sb:6 * self.n_sb, :])
         r_sbR_1, r_sbR_2 = self.compute_bcR_residual(inp_train_sb[6 * self.n_sb:, :])
         r_tb_varphi, r_tb_P1, r_tb_P2 = self.compute_ic_residual(inp_train_tb)
-
+        # r_sbL_1, r_sbL_2, sbR_1, sbR_1 error
         loss_sb = torch.mean(abs(r_sb_varphi) ** 2) + torch.mean(
             abs(r_sbU_1) ** 2) + torch.mean(abs(r_sbU_2) ** 2) + torch.mean(
             abs(r_sbD_1) ** 2) + torch.mean(abs(r_sbD_2) ** 2) + torch.mean(
@@ -752,6 +760,7 @@ class Pinns2:
                 # backpropragation
                 loss.backward()
                 # recording
+                
                 losses.append(loss.item())
                 losses_sb.append(loss_sb.item())
                 losses_tb.append(loss_tb.item())
@@ -794,7 +803,7 @@ class Pinns2:
                         best_state = deepcopy(self.approximate_solution.state_dict())
 
                         best_loss = losses[-1]
-                pbar.set_postfix(loss=np.mean(losses[-len(self.training_set_sb):]))
+                pbar.set_postfix(loss=losses[-1])
                 pbar.update(1)
             pbar.close()
 
@@ -823,7 +832,7 @@ class Pinns2:
         ax.set_yscale('log')
         plt.savefig(f'loss.png')
 
-        return losses
+        return u_end 
 
     def testing(self):
         pass

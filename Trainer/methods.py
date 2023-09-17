@@ -42,6 +42,9 @@ def CTemporalPINN(args):
     time_intervals = []  # List to store corresponding time intervals
     u_previous = torch.tensor(pd.read_csv('initial.csv').values[0:args.n_tb, :], dtype=torch.float32,
                               device=args.device)  # Initial condition
+    u_previous[:] = 0.0
+    u_previous[:,1] = 0.49
+    
 
     for i in range(0, args.nt):
 

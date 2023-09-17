@@ -26,7 +26,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_int', type=int, default=600)
     parser.add_argument('--n_sb', type=int, default=100)
     parser.add_argument('--n_tb', type=int, default=600)
-    parser.add_argument('--nt', type=int, default=2)
+    parser.add_argument('--nt', type=int, default=1)
     parser.add_argument('--nx', type=int, default=30)
     parser.add_argument('--ny', type=int, default=20)
     parser.add_argument('--delta_t', type=float, default=0.01)
