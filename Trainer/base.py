@@ -323,19 +323,20 @@ class Pinns:
                 losses_int_2.append(loss_int_2.item())
                 losses_int_3.append(loss_int_3.item())
                 losses_sb.append(loss_sb.item())
+                if self.config.optimizer == "lbfgs":
+                    pbar.set_postfix(loss=losses[-1])
+                    pbar.update(1)
                 return loss
             
             return closure
 
         # training 
         if self.optimizer_name == "lbfgs":
-            pbar = tqdm(total=len(self.training_set_sb), desc='Batch', colour='blue') # Progress bar for LBFGS based on batches
+            pbar = tqdm(total=self.config.max_iter, desc='Batch', colour='blue') # Progress bar for LBFGS based on batches
             #optimizer = torch.optim.LBFGS(self.approximate_solution.parameters(), lr=lr, max_iter=max_iter, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=100, line_search_fn=None)
             
             for j, (batch_sb, batch_int) in enumerate(zip(self.training_set_sb, self.training_set_int)):
                 self.optimizer.step(closure=train_batch(batch_sb, batch_int))
-            pbar.set_postfix(loss=losses[-1])
-            pbar.update(1)
             pbar.close()
 
         elif self.optimizer_name == "adam":
@@ -357,7 +358,7 @@ class Pinns:
                         best_state = deepcopy(self.approximate_solution.state_dict())
 
                         best_loss = losses[-1]
-                pbar.set_postfix(loss=np.mean(losses[-len(self.training_set_sb):]))
+                pbar.set_postfix(loss=losses[-1])
                 pbar.update(1)
             pbar.close()
             
