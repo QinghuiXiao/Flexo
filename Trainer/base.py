@@ -2,7 +2,6 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 #from torch.utils.tensorboard import SummaryWriter
-
 from torch.utils.data import DataLoader
 from .model import NeuralNet
 from .model import MultiVariatePoly  
@@ -23,11 +22,12 @@ class Pinns:
         self.n_int = config.n_int
         self.n_sb = config.n_sb
         self.delta_t = config.delta_t
+        self.nx = config.nx
+        self.ny = config.ny
         self.optimizer_name = config.optimizer
 
         self.device = config.device
         self.u_previous = u_previous_.to(self.device)
-        
 
         #PDE parameters
         self.L = 100
@@ -62,7 +62,7 @@ class Pinns:
         # Generator of Sobol sequences
         self.soboleng = torch.quasirandom.SobolEngine(dimension=2)
 
-        self.strueng = StrgridEngine(dimension=2, grid_size=(30, 20))
+        self.strueng = StrgridEngine(dimension=2, grid_size=(self.nx, self.ny))
 
         # Training sets S_sb, S_tb, S_int as torch dataloader
         self.training_set_sb, self.training_set_int = self.assemble_datasets()
@@ -162,7 +162,6 @@ class Pinns:
                 + 2 * self.alpha_1 * P2 + 4 * self.alpha_11 * P2 ** 3 + 2 * self.alpha_12 * P2 * P1 ** 2
                 + 6 * self.alpha_111 * P2 ** 5 + self.alpha_112 * (
                             2 * P2 * P1 ** 4 + 4 * P2 ** 3 * P1 ** 2)) + self.g * P2_11 + self.g * P2_22 - varphi_2
-
 
         return residual_PDE_1.reshape(-1, ), residual_PDE_2.reshape(-1, ), residual_PDE_3.reshape(-1, )
 
@@ -307,7 +306,6 @@ class Pinns:
         }[self.optimizer_name]
         #pbar = tqdm(range(epoch), desc = 'Epoch', colour='blue')
 
-
         u_end = None  # 初始化 u_end
 
         def train_batch(batch_sb, batch_int):
@@ -319,7 +317,6 @@ class Pinns:
                 loss, loss_sb, loss_int_1, loss_int_2, loss_int_3 = self.compute_loss(inp_train_sb, inp_train_int, verbose=verbose)
                 # backpropragation
                 loss.backward()
-                
                 # recording
                 losses.append(loss.item())
                 losses_int_1.append(loss_int_1.item())
@@ -380,6 +377,7 @@ class Pinns:
         ax.plot(np.arange(len(losses_int_2)), losses_int_2, label="loss_int_2")
         ax.plot(np.arange(len(losses_int_3)), losses_int_3, label="loss_int_3")
         ax.plot(np.arange(len(losses_sb)), losses_sb, label="loss_sb")
+
         if best_epoch != -1:
             ax.scatter([best_epoch],[best_loss], c='r', marker='o', label="best loss")
         ax.set_xlabel('Epoch')
@@ -389,11 +387,10 @@ class Pinns:
         ax.set_xlim(left=0)
         ax.set_yscale('log')
         plt.savefig(f'loss.png')
-        
 
         return u_end
 
-    def testing():
+    def testing(self):
         pass
 
     def save_checkpoint(self):
@@ -409,7 +406,7 @@ class Pinns:
         print('Pretrained model loaded!')
 
 class Pinns2:
-    def __init__(self, config):
+    def __init__(self, config, u_previous_, time_domain_):
         self.config = config
         self.pre_model_save_path = config.pre_model_save_path
         self.save_dir = config.save_path
@@ -417,10 +414,14 @@ class Pinns2:
         self.n_int = config.n_int
         self.n_sb = config.n_sb
         self.n_tb = config.n_tb
-        #self.delta_t = config.delta_t
+        self.delta_t = config.delta_t
+        self.nt = config.nt
+        self.nx = config.nx
+        self.ny = config.ny
         self.optimizer_name = config.optimizer
-
         self.device = config.device
+        self.u_previous = u_previous_.to(self.device)
+        self.time_domain = time_domain_.to(self.device)
 
         # PDE parameters
         self.L = 100
@@ -432,14 +433,13 @@ class Pinns2:
         self.epsilon_0 = 0.5841
         self.g = 0.15
 
-        self.domain_extrema = torch.tensor([[0, 30],  # x dimension
-                                            [0, 20],  # y dimension
-                                            [0, 5]])   # t dimension
+        self.space_domain = torch.tensor([[0, 20],  # x dimension
+                                          [0, 20]]) # y dimension
 
         # Number of space dimensions
         self.space_dimensions = 2
 
-        self.approximate_solution = NeuralNet(input_dimension=self.domain_extrema.shape[0], output_dimension=3,
+        self.approximate_solution = NeuralNet(input_dimension=3, output_dimension=3,
                                               n_hidden_layers=self.config.n_hidden_layers,
                                               neurons=self.config.neurons,
                                               regularization_param=0.,
@@ -454,9 +454,8 @@ class Pinns2:
             self.load_checkpoint()
 
         # Generator of Sobol sequences
-        self.soboleng = torch.quasirandom.SobolEngine(dimension=3)
-
-        #self.strueng = StrgridEngine(dimension=2, grid_size=(30, 20))
+        self.soboleng = torch.quasirandom.SobolEngine(dimension=2)
+        self.strueng = StrgridEngine(dimension=2, grid_size=(self.nx, self.ny))
 
         # Training sets S_sb, S_tb, S_int as torch dataloader
         self.training_set_sb, self.training_set_tb, self.training_set_int = self.assemble_datasets()
@@ -468,43 +467,58 @@ class Pinns2:
     # Function to linearly transform a tensor whose value are between 0 and 1
     # to a tensor whose values are between the domain extrema
     def convert(self, tens):
-        assert (tens.shape[1] == self.domain_extrema.shape[0])
-        return tens * (self.domain_extrema[:, 1] - self.domain_extrema[:, 0]) + self.domain_extrema[:, 0]
+        assert (tens.shape[1] == self.space_domain.shape[0])
+        return tens * (self.space_domain[:, 1] - self.space_domain[:, 0]) + self.space_domain[:, 0]
 
     ################################################################################################
     # Function returning the input-output tensor required to assemble the training set S_sb corresponding to the spatial boundary
     def add_spatial_boundary_points(self):
-        x0 = self.domain_extrema[0, 0]
-        xL = self.domain_extrema[0, 1]
-        y0 = self.domain_extrema[1, 0]
-        yL = self.domain_extrema[1, 1]
+        t = torch.linspace(self.time_domain[0], self.time_domain[1], 2)
+        x0 = self.space_domain[0, 0]
+        xL = self.space_domain[0, 1]
+        y0 = self.space_domain[1, 0]
+        yL = self.space_domain[1, 1]
 
-        input_sb = self.convert(self.soboleng.draw(self.n_sb))
-        input_sb_L = torch.clone(input_sb)
-        input_sb_L[:, 0] = x0
-        input_sb_D = torch.clone(input_sb)
-        input_sb_D[:, 1] = y0
-        input_sb_R = torch.clone(input_sb)
-        input_sb_R[:, 0] = xL
-        input_sb_U = torch.clone(input_sb)
-        input_sb_U[:, 1] = yL
+        input_sb_space = self.convert(self.soboleng.draw(self.n_sb))
+        input_sb_space_L = torch.clone(input_sb_space)
+        input_sb_space_L[:, 0] = x0
+        input_sb_space_L = torch.tile(input_sb_space_L, [2, 1])
+        input_sb_time_L = torch.tile(t[:, None], [self.n_sb, 1])
+        input_sb_L = torch.cat((input_sb_space_L, input_sb_time_L), dim=1)
+        input_sb_space_D = torch.clone(input_sb_space)
+        input_sb_space_D[:, 1] = y0
+        input_sb_space_D = torch.tile(input_sb_space_D, [2, 1])
+        input_sb_time_D = torch.tile(t[:, None], [self.n_sb, 1])
+        input_sb_D = torch.cat((input_sb_space_D, input_sb_time_D), dim=1)
+        input_sb_space_R = torch.clone(input_sb_space)
+        input_sb_space_R[:, 0] = xL
+        input_sb_space_R = torch.tile(input_sb_space_R, [2, 1])
+        input_sb_time_R = torch.tile(t[:, None], [self.n_sb, 1])
+        input_sb_R = torch.cat((input_sb_space_R, input_sb_time_R), dim=1)
+        input_sb_space_U = torch.clone(input_sb_space)
+        input_sb_space_U[:, 1] = yL
+        input_sb_space_U = torch.tile(input_sb_space_U, [2, 1])
+        input_sb_time_U = torch.tile(t[:, None], [self.n_sb, 1])
+        input_sb_U = torch.cat((input_sb_space_U, input_sb_time_U), dim=1)
         input_sb = torch.cat([input_sb_U, input_sb_D, input_sb_L, input_sb_R], 0)
-        print(input_sb.shape)
-        print(input_sb)
+
         return input_sb
 
     def add_temporal_boundary_points(self):
-        t0 = self.domain_extrema[2, 0]
-        input_tb = self.convert(self.soboleng.draw(self.n_tb))
-        input_tb[:, 2] = torch.full(input_tb[:, 2].shape, t0)
-        print(input_tb.shape)
-        print(input_tb)
+        # 从时间坐标中获取初始时间
+        t_initial = torch.tensor([self.time_domain[0]])
+        print(t_initial)
+        input_tb_time = torch.tile(t_initial[:, None], [self.n_tb, 1])
+        input_tb_space = self.convert(self.strueng.generate_structure_grid())
+        input_tb = torch.cat((input_tb_space, input_tb_time), dim=1)
         return input_tb
 
     def add_interior_points(self):
-        input_int = self.convert(self.soboleng.draw(self.n_int))
-        print(input_int.shape)
-        print(input_int)
+        t_end = torch.tensor([self.time_domain[1]])
+        print(t_end)
+        input_int_time = torch.tile(t_end[:, None], [self.n_int, 1])
+        input_int_space = self.convert(self.strueng.generate_structure_grid())
+        input_int = torch.cat((input_int_space, input_int_time), dim=1)
         return input_int
 
     def assemble_datasets(self):
@@ -522,15 +536,22 @@ class Pinns2:
         return training_set_sb, training_set_tb, training_set_int
 
     def compute_ic_residual(self, input_tb):
+        P1_previous = self.u_previous[:, 0].reshape(-1, 1)
+        P2_previous = self.u_previous[:, 1].reshape(-1, 1)
+        varphi_previous = self.u_previous[:, 2].reshape(-1, 1)
+
         input_tb.requires_grad = True
         u = self.approximate_solution(input_tb)
         P1 = u[:, 0].reshape(-1, 1)
         P2 = u[:, 1].reshape(-1, 1)
         varphi = u[:, 2].reshape(-1, 1)
 
-        residual_P = P1 ** 2 + P2 ** 2 - 0.7 ** 2
-        residual_varphi = varphi
-        return residual_varphi.reshape(-1, ), residual_P.reshape(-1, )
+        #residual_P = P1 ** 2 + P2 ** 2 - 0.7 ** 2
+        residual_P1 = P1 - P1_previous
+        residual_P2 = P2 - P2_previous
+        residual_varphi = varphi - varphi_previous
+
+        return residual_varphi.reshape(-1, ), residual_P1.reshape(-1, ), residual_P2.reshape(-1, )
 
     # Function to compute the PDE residuals
     def compute_pde_residual(self, input_int):
@@ -648,15 +669,16 @@ class Pinns2:
         residual_R_2 = P2_1 * 1 + P2_2 * 0
 
         return residual_R_1.reshape(-1, ), residual_R_2.reshape(-1, )
+
     # Function to compute the total loss (weighted sum of spatial boundary loss, temporal boundary loss and interior loss)
     def compute_loss(self, inp_train_sb, inp_train_tb, inp_train_int, verbose=True):
         r_int_1, r_int_2, r_int_3 = self.compute_pde_residual(inp_train_int)
         r_sb_varphi = self.compute_bc_residual(inp_train_sb)
-        r_sbU_1, r_sbU_2 = self.compute_bcU_residual(inp_train_sb[0:self.n_sb, :])
-        r_sbD_1, r_sbD_2 = self.compute_bcD_residual(inp_train_sb[self.n_sb:2 * self.n_sb, :])
-        r_sbL_1, r_sbL_2 = self.compute_bcL_residual(inp_train_sb[2 * self.n_sb:3 * self.n_sb, :])
-        r_sbR_1, r_sbR_2 = self.compute_bcR_residual(inp_train_sb[3 * self.n_sb:, :])
-        r_tb_varphi, r_tb_P = self.compute_ic_residual(inp_train_tb)
+        r_sbU_1, r_sbU_2 = self.compute_bcU_residual(inp_train_sb[0:2*self.n_sb, :])
+        r_sbD_1, r_sbD_2 = self.compute_bcD_residual(inp_train_sb[2*self.n_sb:4 * self.n_sb, :])
+        r_sbL_1, r_sbL_2 = self.compute_bcL_residual(inp_train_sb[4 * self.n_sb:6 * self.n_sb, :])
+        r_sbR_1, r_sbR_2 = self.compute_bcR_residual(inp_train_sb[6 * self.n_sb:, :])
+        r_tb_varphi, r_tb_P1, r_tb_P2 = self.compute_ic_residual(inp_train_tb)
 
         loss_sb = torch.mean(abs(r_sb_varphi) ** 2) + torch.mean(
             abs(r_sbU_1) ** 2) + torch.mean(abs(r_sbU_2) ** 2) + torch.mean(
@@ -664,11 +686,8 @@ class Pinns2:
             abs(r_sbL_1) ** 2) + torch.mean(abs(r_sbL_2) ** 2) + torch.mean(
             abs(r_sbR_1) ** 2) + torch.mean(abs(r_sbR_2) ** 2)
 
-        loss_tb = torch.mean(abs(r_tb_varphi) ** 2) + torch.mean(abs(r_tb_P) ** 2)
+        loss_tb = torch.mean(abs(r_tb_varphi) ** 2) + torch.mean(abs(r_tb_P1) ** 2) + torch.mean(abs(r_tb_P2) ** 2)
         loss_int = torch.mean(abs(r_int_1) ** 2) + torch.mean(abs(r_int_2) ** 2) + torch.mean(abs(r_int_3) ** 2)
-        #loss_int_1 = torch.mean(abs(r_int_1) ** 2)
-        #loss_int_2 = torch.mean(abs(r_int_2) ** 2)
-        #loss_int_3 = torch.mean(abs(r_int_3) ** 2)
 
         loss = loss_sb + loss_int + loss_tb
 
@@ -719,6 +738,8 @@ class Pinns2:
         }[self.optimizer_name]
         # pbar = tqdm(range(epoch), desc = 'Epoch', colour='blue')
 
+        u_end = None
+
         def train_batch(batch_sb, batch_tb, batch_int):
             inp_train_sb = batch_sb[0].to(self.device)
             inp_train_tb = batch_tb[0].to(self.device)
@@ -738,9 +759,7 @@ class Pinns2:
                 if self.config.optimizer == "lbfgs":
                     pbar.set_postfix(loss=losses[-1])
                     pbar.update(1)
-
                 return loss
-
             return closure
 
         # training
@@ -782,7 +801,10 @@ class Pinns2:
             self.approximate_solution.load_state_dict(best_state)
             self.save_checkpoint()
 
-        # Plot2D.Quiver2D(nodecoords=np.array(list(self.training_set_int)[0][0]), sol=u_end.cpu().numpy(), savefig=True, figname='Result')
+        with torch.no_grad():
+            u_end = self.approximate_solution(list(self.training_set_int)[0][0].to(self.device))
+
+        #Plot2D.Quiver2D(nodecoords=np.array(list(self.training_set_int)[0][0]), sol=u_end.cpu().numpy(), savefig=True, figname='Result')
 
         # plot losses vs epoch
         fig, ax = plt.subplots(figsize=(12, 8))
@@ -817,32 +839,3 @@ class Pinns2:
         checkpoint = torch.load(self.pre_model_save_path)
         self.approximate_solution.load_state_dict(checkpoint['model_state_dict'])
         print('Pretrained model loaded!')
-
-    def plotting(self):
-        t = torch.linspace(0, 5, 50)
-        x = torch.linspace(0, 30, 60)
-        y = torch.linspace(0, 20, 40)
-        grid = torch.meshgrid(t, x, y, indexing='ij')
-        inputs = torch.stack(grid, dim=-1).reshape(-1, 3)
-        outputs = self.approximate_solution(inputs).detach().numpy()
-        P1 = outputs[:, 0]
-        P2 = outputs[:, 1]
-
-        magnitude = np.sqrt(P1 ** 2 + P2 ** 2)
-        P1_normalized = P1 / magnitude
-        P2_normalized = P2 / magnitude
-
-        for i, t_val in enumerate(t):
-            if i % 5 == 0:
-                xx, yy = np.meshgrid(x, y, indexing='ij')
-                P1_slice = P1_normalized[i * xx.size:(i + 1) * xx.size].reshape(xx.shape)
-                P2_slice = P2_normalized[i * xx.size:(i + 1) * xx.size].reshape(xx.shape)
-                magnitude_slice = magnitude[i * xx.size:(i + 1) * xx.size].reshape(xx.shape)
-                plt.figure(figsize=(8, 5), dpi=150)
-                plt.quiver(xx, yy, P1_slice, P2_slice, magnitude_slice, angles='xy', scale_units='xy', scale=1,
-                           cmap='jet')
-                plt.colorbar(label='Magnitude')
-                plt.title(f"Velocity Vector Plot at t = {t_val}")
-                plt.xlabel("x")
-                plt.ylabel("y")
-                plt.savefig('./result_plot/P_vector_test_' + str(i))
