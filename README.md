@@ -69,7 +69,8 @@ $$\begin{cases}
 \frac{1}{L}\dot P_2-\frac{\partial F_L}{\partial P_2}+g_{ij1l}P_{i,jl}+2q_{ij1l}\varepsilon_{ij}P_l+f_{ij1l}\varepsilon_{ij,l}+E_2=0(5)
 \end{cases}$$
 
-$$F_L=\alpha_1(P^2_1+P^2_2)+\alpha_{11}(P^4_1+P^4_2)+\alpha_{12}P^2_1P^2_2+\alpha_{111}(P^6_1+P^6_2)+\alpha_{112}(P^2_1P^4_2+P^4_1P^2_2)+\alpha_{1111}(P^8_1+P^8_2)+\alpha_{1122}P^4_1P^4_2+\alpha_{1112}(P^2_1P^6_2+P^6_1P^2_2)$$
+$$F_L=\alpha_1(P^2_1+P^2_2)+\alpha_{11}(P^4_1+P^4_2)+\alpha_{12}P^2_1P^2_2+\alpha_{111}(P^6_1+P^6_2)+\alpha_{112}(P^2_1P^4_2+P^4_1P^2_2)$$
+$$+\alpha_{1111}(P^8_1+P^8_2)+\alpha_{1122}P^4_1P^4_2+\alpha_{1112}(P^2_1P^6_2+P^6_1P^2_2)$$
 
 $$\begin{cases}
 \dot P_1-(2\alpha_1P_1+4\alpha_{11}P^3_1+2\alpha_{12}P_1P^2_2+6\alpha_{111}P^5_1+\alpha_{112}(2P_1P^4_2+4P^3_1P^2_2)+8\alpha_{1111}P^7_1+4\alpha_{1122}P^3_1P^4_2+\alpha_{1112}(2P_1P^6_2+6P^5_1P^2_2)+g_{11}P_{1,11}+g_{31}P_{2,11}+g_{31}P_{1,21}+g_{13}P_{1,12}+g_{21}P_{2,21}+g_{33}P_{2,12}+g_{33}P_{1,22}+g_{23}P_{2,22}+2q_{11}u_{1,1}P_1+2q_{31}(u_{1,2}+u_{2,1})P_1+2q_{13}u_{1,1}P_2+2q_{21}u_{2,2}P_1+2q_{33}(u_{1,2}+u_{2,1})P_2+2q_{23}u_{2,2}P_2+f_{11}u_{1,11}+f_{31}(u_{1,21}+u_{2,11})+f_{13}u_{1,12}+f_{21}u_{2,21}+f_{33}(u_{1,22}+u_{2,12})+f_{23}u_{2,22}-\varphi_{,1}=0(4)\\
@@ -103,4 +104,8 @@ $$P_{i,j}n_j=0$$
 The initial conditions is:
 
 $$P^2_1+P^2_2=0.2^2$$
+$$\varphi =0 $$
 
+$$u_0 = torch.zeros(args.n_tb, 3)$$
+$$u_0[:, 0] = torch.FloatTensor(args.n_tb).uniform_(-0.7, 0.7)$$
+$$u_0[:, 1] = torch.sqrt(0.7 ** 2 - u_previous[:, 0] ** 2)$$
