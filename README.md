@@ -89,6 +89,16 @@ $$+2q_{13}u_{1,1}P_1+2q_{33}(u_{1,2}+u_{2,1})P_1+2q_{12}u_{1,1}P_2+2q_{23}u_{2,2
 
 $$+f_{13}u_{1,11}+f_{33}(u_{1,21}+u_{2,11})+f_{12}u_{1,12}+f_{23}u_{2,21}+f_{32}(u_{1,22}+u_{2,12})+f_{22}u_{2,22}-\varphi_{,2}=0(5)$$ 
 
+The simplified PDE does not have the mechanical balance equation (1)(2), and the equation (4)(5) removes the displacement term:
+
+$$\frac{1}{L}\dot P_1-(2\alpha_1P_1+4\alpha_{11}P^3_1+2\alpha_{12}P_1P^2_2+6\alpha_{111}P^5_1+\alpha_{112}(2P_1P^4_2+4P^3_1P^2_2)+8\alpha_{1111}P^7_1$$
+
+$$+4\alpha_{1122}P^3_1P^4_2+\alpha_{1112}(2P_1P^6_2+6P^5_1P^2_2)+g*(P_{1,11}+P_{1,22})-\varphi_{,1}=0$$  
+
+$$\frac{1}{L}\dot P_2-(2\alpha_1P_2+4\alpha_{11}P^3_2+2\alpha_{12}P_2P^2_1+6\alpha_{111}P^5_2+\alpha_{112}(2P_2P^4_1+4P^3_2P^2_1)+8\alpha_{1111}P^7_2$$
+
+$$+4\alpha_{1122}P^3_2P^4_1+\alpha_{1112}(2P_2P^6_1+6P^5_2P^2_1)+g*(P_{2,11}+P_{2,22})-\varphi_{,2}=0$$ 
+
 $unit:nN,nm,GPa,10^{-18}C,10^{-18}J$
 
 PZT parameters:
