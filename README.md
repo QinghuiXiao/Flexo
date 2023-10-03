@@ -70,6 +70,7 @@ $$\begin{cases}
 \end{cases}$$
 
 $$F_L=\alpha_1(P^2_1+P^2_2)+\alpha_{11}(P^4_1+P^4_2)+\alpha_{12}P^2_1P^2_2+\alpha_{111}(P^6_1+P^6_2)+\alpha_{112}(P^2_1P^4_2+P^4_1P^2_2)$$
+
 $$+\alpha_{1111}(P^8_1+P^8_2)+\alpha_{1122}P^4_1P^4_2+\alpha_{1112}(P^2_1P^6_2+P^6_1P^2_2)$$
 
 $$\begin{cases}
@@ -98,9 +99,7 @@ $f_{11}=5;f_{12}=0;f_{13}=0;f_{22}=5;f_{23}=0;f_{33}=0;$
 $\alpha_1=-0.148;\alpha_{11}=-0.031;\alpha_{12}=0.63;\alpha_{111}=0.25;\alpha_{112}=0.97;\epsilon_0=0.5841;L=1$
 
 Additionally, some initial conditions and boundary conditions are known and can be used to help train the model.  
-
 The boundary conditions are:
-
 $$\varphi =0 $$
 
 $$u_i = 0$$
@@ -108,11 +107,9 @@ $$u_i = 0$$
 $$P_{i,j}n_j=0$$
 
 The initial conditions is:
-
 $$P^2_1+P^2_2=0.2^2$$
 $$\varphi =0 $$
 
 $$u_0 = torch.zeros(args.n_{tb}, 3)$$
 $$u_0[:, 0] = torch.FloatTensor(args.n_tb).uniform_(-0.7, 0.7)$$
 $$u_0[:, 1] = torch.sqrt(0.7 ** 2 - u_previous[:, 0] ** 2)$$
-
