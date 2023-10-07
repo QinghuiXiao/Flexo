@@ -93,11 +93,11 @@ The simplified PDE does not have the mechanical balance equation (1)(2), and the
 
 $$\frac{1}{L}\dot P_1-(2\alpha_1P_1+4\alpha_{11}P^3_1+2\alpha_{12}P_1P^2_2+6\alpha_{111}P^5_1+\alpha_{112}(2P_1P^4_2+4P^3_1P^2_2)+8\alpha_{1111}P^7_1$$
 
-$$+4\alpha_{1122}P^3_1P^4_2+\alpha_{1112}(2P_1P^6_2+6P^5_1P^2_2)+g*(P_{1,11}+P_{1,22})-\varphi_{,1}=0$$  
+$$+4\alpha_{1122}P^3_1P^4_2+\alpha_{1112}(2P_1P^6_2+6P^5_1P^2_2)+g*(P_{1,11}+P_{1,22})-\varphi_{,1}=0(6)$$  
 
 $$\frac{1}{L}\dot P_2-(2\alpha_1P_2+4\alpha_{11}P^3_2+2\alpha_{12}P_2P^2_1+6\alpha_{111}P^5_2+\alpha_{112}(2P_2P^4_1+4P^3_2P^2_1)+8\alpha_{1111}P^7_2$$
 
-$$+4\alpha_{1122}P^3_2P^4_1+\alpha_{1112}(2P_2P^6_1+6P^5_2P^2_1)+g*(P_{2,11}+P_{2,22})-\varphi_{,2}=0$$ 
+$$+4\alpha_{1122}P^3_2P^4_1+\alpha_{1112}(2P_2P^6_1+6P^5_2P^2_1)+g*(P_{2,11}+P_{2,22})-\varphi_{,2}=0(7)$$ 
 
 $unit:nN,nm,GPa,10^{-18}C,10^{-18}J$
 
@@ -122,7 +122,7 @@ $$u_i = 0$$
 $$P_{i,j}n_j=0$$
 
 The initial conditions is:
-$$P^2_1+P^2_2=0.2^2$$
+$$P^2_1+P^2_2=0.7^2$$
 $$\varphi =0 $$
 
 $$u_0 = torch.zeros(args.n_{tb}, 3)$$
