@@ -14,9 +14,9 @@ def TemporalPINN(args):
 
     networks=[] # List to store networks for each time interval
     time_intervals = [] # List to store corresponding time intervals
-    u_previous = torch.tensor(pd.read_csv('initial_0.csv').values[0:args.n_int, :], dtype=torch.float32, device=args.device) # Initial condition
-    u_previous[:] = 0.0
-    u_previous[:,1] = 0.49
+    u_previous = torch.zeros(args.n_int)# Initial condition
+    u_previous[:, 0] = torch.FloatTensor(args.n_int).uniform_(-0.7, 0.7)
+    u_previous[:, 1] = torch.sqrt(0.7**2 - u_previous[:, 0]**2)
 
     for i in range(1, args.nt+1):
         time_intervals.append(i*args.delta_t)
@@ -42,10 +42,9 @@ def CTemporalPINN(args):
 
     networks = []  # List to store networks for each time interval
     time_intervals = []  # List to store corresponding time intervals
-    u_previous = torch.tensor(pd.read_csv('initial.csv').values[0:args.n_tb, :], dtype=torch.float32,
-                              device=args.device)  # Initial condition
-    u_previous[:] = 0.0
-    u_previous[:,1] = 0.49
+    u_previous = torch.zeros(args.n_tb)# Initial condition
+    u_previous[:, 0] = torch.FloatTensor(args.n_tb).uniform_(-0.7, 0.7)
+    u_previous[:, 1] = torch.sqrt(0.7**2 - u_previous[:, 0]**2)
     
 
     for i in range(0, args.nt):
