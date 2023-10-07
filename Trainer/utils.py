@@ -31,14 +31,16 @@ class Plot2D:
         x, y=nodecoords[:, 0],nodecoords[:, 1]
         xmin, xmax = np.min(x), np.max(x)
         ymin, ymax = np.min(y), np.max(y)
-        X, Y = np.meshgrid(np.linspace(xmin, xmax, 100), np.linspace(ymin, ymax, 100))
+        X, Y = np.meshgrid(np.linspace(xmin, xmax, 31), np.linspace(ymin, ymax, 21))
         P1 = sol[:, 0]
         P2 = sol[:, 1]
-        magnitude = griddata(nodecoords, np.sqrt(P1**2 + P2**2), (X, Y), method='linear') 
-        P1_normalized = griddata(nodecoords, P1 / magnitude, (X, Y), method='linear') # cubic, linear, nearest
-        P2_normalized = griddata(nodecoords, P2 / magnitude, (X, Y), method='linear')
-
-        cs= plt.quiver(X, Y, P1_normalized, P2_normalized, magnitude, angles='xy', scale_units='xy', scale=1, cmap='jet')
+        #magnitude = griddata(nodecoords, np.sqrt(P1**2 + P2**2), (X, Y), method='linear') 
+        #P1_normalized = griddata(nodecoords, P1 / magnitude, (X, Y), method='linear') # cubic, linear, nearest
+        #P2_normalized = griddata(nodecoords, P2 / magnitude, (X, Y), method='linear')
+        magnitude = np.sqrt(P1**2 + P2**2)
+        P1_normalized = P1 / magnitude
+        P2_normalized = P2 / magnitude
+        cs= plt.quiver(X, Y, P1_normalized, P2_normalized, magnitude, angles='xy', scale_units='xy', scale=2, cmap='jet')
 
         fig.colorbar(cs)
         ax.axis('equal')
@@ -52,7 +54,7 @@ class Plot2D:
                 print('save result to result.jpg')
 
 class StrgridEngine:
-    def __init__(self, dimension=2, grid_size=(30, 20)):
+    def __init__(self, dimension=2, grid_size=(31, 21)):
         self.dimension = dimension
         self.grid_size = grid_size
 

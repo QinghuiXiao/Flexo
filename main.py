@@ -9,7 +9,7 @@ if __name__ == "__main__":
     parser.add_argument('--trainer', type=str, default="TemporalPINN", help="trainer: TemporalPINN or CTemporalPINN")
     parser.add_argument('--device', type=str, default="cuda", help="device: cpu or cuda:id")
     parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--save_path', type=str, default='./results/adam_1000.pt')
+    parser.add_argument('--save_path', type=str, default='./model/adam_1000.pt')
     parser.add_argument('--pre_model_save_path', type=str, default=None)
 
     # Training setup
@@ -23,12 +23,12 @@ if __name__ == "__main__":
     parser.add_argument('--scheduler_gamma', type=float, default=0.9, help="gamma for learning rate scheduler")
 
     # PINN setup
-    parser.add_argument('--n_int', type=int, default=600)
+    parser.add_argument('--n_int', type=int, default=651)
     parser.add_argument('--n_sb', type=int, default=100)
-    parser.add_argument('--n_tb', type=int, default=600)
+    parser.add_argument('--n_tb', type=int, default=651)
     parser.add_argument('--nt', type=int, default=1)
-    parser.add_argument('--nx', type=int, default=30)
-    parser.add_argument('--ny', type=int, default=20)
+    parser.add_argument('--nx', type=int, default=31)
+    parser.add_argument('--ny', type=int, default=21)
     parser.add_argument('--delta_t', type=float, default=0.01)
 
     # Network setup
